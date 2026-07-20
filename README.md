@@ -54,6 +54,32 @@ Pre-built examples include [`data/professions-fbi.json`](data/professions-fbi.js
 [`data/professions-cia.json`](data/professions-cia.json), [`data/professions-dea.json`](data/professions-dea.json),
 [`data/professions-socom.json`](data/professions-socom.json), and [`data/professions-uk.json`](data/professions-uk.json).
 
+The `-t`/`--type` flag selects a single profession to generate, and accepts either the profession's data key (e.g.
+`agent`) or its display label (e.g. `Federal Agent`), case-insensitively. An unrecognised value lists all valid keys
+and labels.
+
+### Generating a specific character
+
+By default every character's name, sex, age, and education/occupational history are randomly generated. To generate
+one specific character instead, combine `-t`/`--type` with `-c 1` and any of the following:
+
+* `--name` - override the generated name, e.g. `--name "SMITH, John"`. Best used with `-c 1`, since it will otherwise
+  be applied to every character generated.
+* `--sex {male,female}` - set the sex for all generated characters, instead of alternating.
+* `--birth-year` - set an exact birth year, e.g. `--birth-year 1985`, instead of a random age within `-a`/`-A`.
+* `--birthdate` - set an exact birthdate, e.g. `--birthdate "1986-11-24"` or `--birthdate "November 24, 1986"`. Takes
+  precedence over `--birth-year`, and also sets the exact birthday shown on the sheet (rather than a random one).
+* `--education` - set the "Education and Occupational History" field, e.g.
+  `--education "Ph.D. Anthropology, Miskatonic University 2014."`. Left blank by default. Long values are
+  automatically shrunk to fit, and truncated with an ellipsis as a last resort.
+
+For example:
+
+```sh
+./generator.py -t "Federal Agent" -c 1 --name "SMITH, John" --sex male --birthdate "1985-06-12" \
+  --employer "FBI" --education "B.S. Criminal Justice, University of Maryland." -o "out/John Smith.pdf"
+```
+
 ### Veterans
 
 If desired, veteran Delta Green agent characters can be generated with the `--veterancy` flag. These characters will
