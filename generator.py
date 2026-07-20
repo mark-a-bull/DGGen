@@ -55,6 +55,21 @@ def parse_date(value: str) -> date:
     )
 
 
+def format_name(name: str) -> str:
+    """Format a name for the sheet's LAST NAME, FIRST NAME, MIDDLE INITIAL field.
+
+    Names already containing a comma (e.g. 'SMITH, John') are assumed to already be in that
+    order and are left as-is. Otherwise the name is assumed to be given in natural reading
+    order (e.g. 'Dr. John Smith') and is rewritten as 'SMITH, Dr. John'.
+    """
+    if "," in name:
+        return name
+    given, _, surname = name.rpartition(" ")
+    if not given:
+        return name.upper()
+    return f"{surname.upper()}, {given}"
+
+
 def find_profession(professions: dict[str, Profession], type_: str) -> Profession:
     """Look up a profession by its data key (e.g. 'agent') or its display label (e.g. 'Federal Agent')."""
     if type_ in professions:
@@ -441,7 +456,7 @@ class Need2KnowCharacter:
                 self.data.family_names().upper() + ", " + self.data.female_given_names()
             )
         if name_override:
-            self.d["name"] = name_override
+            self.d["name"] = format_name(name_override)
         self.d["profession"] = label_override or self.profession.label
         self.d["employer"] = employer_override or ", ".join(
             e for e in [self.profession.employer, self.profession.division] if e
@@ -1231,7 +1246,9 @@ def get_options() -> Namespace:
     gen.add_argument(
         "--name",
         action="store",
-        help="Override generated name, e.g. 'SURNAME, Given'. Best used with -c 1.",
+        help="Override generated name. Accepts either the sheet's 'SURNAME, Given' order "
+        "directly, or natural reading order (e.g. 'Given Surname'), which is reformatted "
+        "automatically. Best used with -c 1.",
     )
     gen.add_argument(
         "--education",
