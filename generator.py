@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 import argparse
 import csv
 import itertools
@@ -11,7 +13,7 @@ from argparse import Namespace
 from collections import defaultdict
 from copy import copy
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from itertools import chain, cycle, islice
 from math import floor
 from pathlib import Path
@@ -42,6 +44,29 @@ MONTHS = ("JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", 
 SUGGESTED_BONUS_CHANCE = 75
 
 
+def parse_date(value: str) -> date:
+    for fmt in ("%Y-%m-%d", "%B %d, %Y", "%b %d, %Y", "%m/%d/%Y"):
+        try:
+            return datetime.strptime(value, fmt).date()
+        except ValueError:
+            continue
+    raise argparse.ArgumentTypeError(
+        f"Invalid date {value!r}. Use YYYY-MM-DD or 'Month D, YYYY', e.g. 'November 24, 1986'.",
+    )
+
+
+def find_profession(professions: dict[str, Profession], type_: str) -> Profession:
+    """Look up a profession by its data key (e.g. 'agent') or its display label (e.g. 'Federal Agent')."""
+    if type_ in professions:
+        return professions[type_]
+    for key, profession in professions.items():
+        if key.lower() == type_.lower() or profession.label.lower() == type_.lower():
+            return profession
+    valid = ", ".join(f"{key} ({profession.label})" for key, profession in professions.items())
+    logger.error("Unknown profession %r. Valid options are: %s", type_, valid)
+    sys.exit(2)
+
+
 def main() -> None:
     options = get_options()
     init_logger(options.verbosity)
@@ -50,7 +75,7 @@ def main() -> None:
     data = load_data(options)
 
     pages_per_sheet = 2 if options.equip else 1
-    professions = [data.professions[options.type]] if options.type else data.professions.values()
+    professions = [find_profession(data.professions, options.type)] if options.type else data.professions.values()
     p = Need2KnowPDF(options.output, pages_per_sheet=pages_per_sheet)
 
     ## TODO: Maybe an option to skip cover, especially for single sheets
@@ -63,7 +88,7 @@ def main() -> None:
         label = generate_label(profession)
         p.bookmark(label)
         for sex in islice(
-            cycle(["female", "male"]),
+            cycle([options.sex] if options.sex else ["female", "male"]),
             options.count or profession.number_to_generate,
         ):
             c = Need2KnowCharacter(
@@ -72,8 +97,12 @@ def main() -> None:
                 profession=profession,
                 label_override=options.label,
                 employer_override=options.employer,
+                name_override=options.name,
+                education_override=options.education,
                 min_age=options.min_age,
                 max_age=options.max_age,
+                birth_year=options.birth_year,
+                birthdate=options.birthdate,
                 nationality=options.nationality,
                 veterancy=options.veterancy,
                 damaged=options.damaged,
@@ -345,8 +374,12 @@ class Need2KnowCharacter:
         profession: dict[str, Any],
         label_override: str | None = None,
         employer_override: str | None = None,
+        name_override: str | None = None,
+        education_override: str | None = None,
         min_age: int = 24,
         max_age: int = 55,
+        birth_year: int | None = None,
+        birthdate: date | None = None,
         nationality: str | None = None,
         veterancy: bool = True,
         damaged: bool = True,
@@ -370,7 +403,17 @@ class Need2KnowCharacter:
 
         self.bonus_skills = []
 
-        self.generate_demographics(label_override, employer_override, min_age, max_age, nationality)
+        self.generate_demographics(
+            label_override,
+            employer_override,
+            name_override,
+            education_override,
+            min_age,
+            max_age,
+            birth_year,
+            birthdate,
+            nationality,
+        )
         self.generate_stats()
         self.generate_skills()
         if veterancy:
@@ -381,8 +424,12 @@ class Need2KnowCharacter:
         self,
         label_override: str | None,
         employer_override: str | None,
+        name_override: str | None,
+        education_override: str | None,
         min_age: int,
         max_age: int,
+        birth_year: int | None,
+        birthdate: date | None,
         nationality: str | None,
     ) -> None:
         if self.sex == "male":
@@ -393,13 +440,27 @@ class Need2KnowCharacter:
             self.d["name"] = (
                 self.data.family_names().upper() + ", " + self.data.female_given_names()
             )
+        if name_override:
+            self.d["name"] = name_override
         self.d["profession"] = label_override or self.profession.label
         self.d["employer"] = employer_override or ", ".join(
             e for e in [self.profession.employer, self.profession.division] if e
         )
+        if education_override:
+            self.d["education"] = education_override
         self.d["nationality"] = (f"({nationality}) " if nationality else "") + self.data.towns()
-        self.age = randint(min_age, max_age)
-        self.d["age"] = "%d    (%s %d)" % (self.age, choice(MONTHS), (randint(1, 28)))
+        if birthdate:
+            today = datetime.now().date()
+            self.age = today.year - birthdate.year - (
+                (today.month, today.day) < (birthdate.month, birthdate.day)
+            )
+            self.d["age"] = "%d    (%s %d)" % (self.age, MONTHS[birthdate.month - 1], birthdate.day)
+        elif birth_year:
+            self.age = datetime.now().year - birth_year
+            self.d["age"] = "%d    (%s %d)" % (self.age, choice(MONTHS), (randint(1, 28)))
+        else:
+            self.age = randint(min_age, max_age)
+            self.d["age"] = "%d    (%s %d)" % (self.age, choice(MONTHS), (randint(1, 28)))
 
     def generate_stats(self) -> None:
         rolled = [[sum(sorted([randint(1, 6) for _ in range(4)])[1:]) for _ in range(6)]]
@@ -762,6 +823,7 @@ class Need2KnowPDF:
         "profession": (343, 693, 11),
         "employer": (75, 665, 11),
         "nationality": (343, 665, 11),
+        "education": (268, 640, 11),
         "age": (185, 640, 11),
         "birthday": (200, 640, 11),
         "male": (98, 639, 11),
@@ -1041,10 +1103,28 @@ class Need2KnowPDF:
         self.c.setFillColorRGB(*TEXT_COLOR)
         self.c.drawString(x, y, str(text))
 
+    # Fields whose value must be shrunk (and, failing that, truncated) to fit within this
+    # many points, since they sit in a single-line box rather than wrapping to a new page area.
+    field_max_widths = {"education": 260}
+
+    @staticmethod
+    def shrink_to_fit(text: str, size: int, max_width: float, min_size: int = 6) -> tuple[str, int]:
+        while size > min_size and pdfmetrics.stringWidth(text, DEFAULT_FONT, size) > max_width:
+            size -= 1
+        if pdfmetrics.stringWidth(text, DEFAULT_FONT, size) > max_width:
+            while text and pdfmetrics.stringWidth(text + "…", DEFAULT_FONT, size) > max_width:
+                text = text[:-1]
+            text += "…"
+        return text, size
+
     def fill_field(self, field: str, value: Any) -> None:
         try:
             x, y, s = self.field_xys[field]
-            self.draw_string(x, y, s, str(value))
+            text = str(value)
+            max_width = self.field_max_widths.get(field)
+            if max_width:
+                text, s = self.shrink_to_fit(text, s, max_width)
+            self.draw_string(x, y, s, text)
         except KeyError:
             logger.exception("Unknown field %s", field)
 
@@ -1125,7 +1205,8 @@ def get_options() -> Namespace:
         "-t",
         "--type",
         action="store",
-        help="Select single profession to generate.",
+        help="Select single profession to generate. Accepts either the profession's data key "
+        "(e.g. 'agent') or its display label (e.g. 'Federal Agent'), case-insensitive.",
     )
     doc.add_argument(
         "-T",
@@ -1146,6 +1227,36 @@ def get_options() -> Namespace:
         "--employer",
         action="store",
         help="Set employer for all generated characters.",
+    )
+    gen.add_argument(
+        "--name",
+        action="store",
+        help="Override generated name, e.g. 'SURNAME, Given'. Best used with -c 1.",
+    )
+    gen.add_argument(
+        "--education",
+        action="store",
+        help="Set education and occupational history for all generated characters. "
+        "Left blank by default.",
+    )
+    gen.add_argument(
+        "--sex",
+        action="store",
+        choices=["male", "female"],
+        help="Set sex for all generated characters, instead of alternating.",
+    )
+    gen.add_argument(
+        "--birth-year",
+        action="store",
+        type=int,
+        help="Set exact birth year for all generated characters, instead of a random age.",
+    )
+    gen.add_argument(
+        "--birthdate",
+        action="store",
+        type=parse_date,
+        help="Set exact birthdate for all generated characters, e.g. '1986-11-24' or "
+        "'November 24, 1986'. Takes precedence over --birth-year.",
     )
     gen.add_argument(
         "-u",
