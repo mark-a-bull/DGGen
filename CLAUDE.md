@@ -4,93 +4,99 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-DGGen is a single-script Python CLI (`generator.py`) that generates pre-made character sheets (as PDFs) for the
-Delta Green pen-and-paper RPG, following the character creation rules from *Delta Green: Need to Know* and the
-*Agent's Handbook*. There is no package structure, build step, or test suite — it's one ~1500-line script plus a
-`data/` directory of JSON/text/CSV inputs and font/image assets.
+DGGen generates pre-made character sheets (as PDFs) for the Delta Green pen-and-paper RPG, following the character
+creation rules from *Delta Green: Need to Know* and the *Agent's Handbook*. The logic lives in the `dggen/` package;
+`data/` holds the JSON/text/CSV inputs plus font/image assets; `tests/` holds the pytest suite. `generator.py` is a
+thin backwards-compatibility shim that just calls `dggen.cli.main`.
 
 ## Setup and running
 
 ```sh
 python -m venv .venv
-source .venv/Scripts/activate   # git-bash/WSL on Windows; use .venv\Scripts\Activate.ps1 in PowerShell, or .venv/bin/activate on Linux/Mac
-pip install -U -r requirements.txt
-python generator.py -h
+source .venv/Scripts/activate   # git-bash/WSL on Windows; .venv\Scripts\Activate.ps1 in PowerShell; .venv/bin/activate on Linux/Mac
+pip install -e ".[dev]"          # editable install + dev deps (pytest, pypdf)
+dggen -h                         # console entry point; or `python -m dggen -h`, or `python generator.py -h`
 ```
 
-Dependencies are just `reportlab` (PDF rendering) and `faker` (optional name generation via `--names`). There is no
-lint config, formatter config, or test suite in this repo — verify changes by actually running the generator and
-inspecting output, not by looking for a `pytest`/`ruff` invocation that doesn't exist.
+Runtime deps are `reportlab` (PDF rendering) and `faker` (optional name generation via `--names`). Dev deps
+(`pytest`, `pypdf`) come from the `[dev]` extra. Because paths are resolved via `dggen/config.py` relative to the
+package, the tool no longer has to be run from the repo root.
 
 Output PDFs go to `out/` (gitignored, along with `.venv/` and `*.pdf` anywhere). `mkdir -p out/dg-veterans` is needed
-once before running the veteran-generation recipes in the README.
+once before the veteran-generation recipes in the README.
+
+### Tests
+
+```sh
+pytest -q                                   # whole suite (fast; ~1s)
+pytest tests/test_text.py::TestFormatName   # a single class
+pytest -k veterancy                         # by keyword
+```
+
+Reproducibility is what makes the domain testable: all randomness flows through one seedable `dggen.rng.Rng`
+(`--seed N` on the CLI). The `make_character` fixture in `tests/conftest.py` drives the whole pipeline
+(`load_data` + `Character.generate`) from a single seeded `Rng`, exactly as the CLI does, so a seed reproduces a
+character including its name. If you touch generation, prefer asserting on the field dicts (`character.d`/`.e`) over
+rendered pixels.
 
 ### Verifying PDF output visually
 
-reportlab renders text at explicit `(x, y)` point coordinates onto a background JPG/PDF — there's no way to inspect
-correctness from the code alone. To check a change actually looks right on the sheet, render a page to a PNG and
-view it:
+reportlab renders text at explicit `(x, y)` point coordinates onto a background JPG — you can't judge placement from
+code alone. To eyeball a change, render a page to PNG:
 
 ```python
-import fitz  # PyMuPDF — not a project dependency, install into .venv temporarily for this only
+import fitz  # PyMuPDF — NOT a project dependency; install into .venv temporarily for this only
 doc = fitz.open("out/some-file.pdf")
-doc[2].get_pixmap(dpi=200).save("scratch.png")  # page index varies: cover=0-1, TOC (if >1 profession), then characters
+doc[2].get_pixmap(dpi=200).save("scratch.png")  # cover=0-1, TOC (if >1 profession), then character pages
 ```
 
-**Coordinate systems differ**: reportlab/PDF space has origin bottom-left with y increasing upward; PyMuPDF's
-`page`/`clip` rects use origin top-left with y increasing downward. When calibrating a new field position by
-cropping with `fitz.Rect`, convert with `fitz_y = 792 - reportlab_y` (page height is 792pt, standard Letter).
-Getting this backwards silently grabs the wrong region of the page.
+**Coordinate systems differ**: reportlab/PDF origin is bottom-left, y up; PyMuPDF `page`/`clip` rects are top-left,
+y down. When cropping to calibrate a field with `fitz.Rect`, convert with `fitz_y = 792 - reportlab_y` (page height
+792pt, US Letter). Getting this backwards silently grabs the wrong region.
 
 ## Architecture
 
-Everything lives in `generator.py`, structured as one linear pipeline:
+Four layers, communicating across narrow seams. The pipeline: `cli.get_options` → `data.load_data` → for each
+profession, for each character `Character.generate(...)` → `pdf.SheetWriter` draws it.
 
-`get_options()` (argparse) → `load_data()` → for each profession, for each character: build a `Need2KnowCharacter`
-→ `Need2KnowPDF` draws it onto the output PDF.
+- **Data** (`models.py`, `data.py`): `@dataclass` models with `from_dict` classmethods, loaded by
+  `load_data(options, rng)` into a `Data` object. `find_profession` resolves `-t/--type` by data key or display
+  label (case-insensitive) and raises `ProfessionNotFound` (the CLI turns that into exit code 2 — library code
+  raises, only the CLI exits). `from __future__ import annotations` in `models.py` is load-bearing: several
+  `from_dict` methods return-annotate their own class, which would `NameError` under eager annotation evaluation.
 
-**Data layer** (`Data`, `Profession`, `ProfessionSkills`, `Kit`, `KitGearEntry`, `KitArmourEntry`, `Weapon`,
-`WeaponRef`, `Damage`, `Lethality` — all `@dataclass` with a `from_dict()` classmethod): loaded once by `load_data()`
-from `data/professions.json` (or an alternate file passed via `--professions`), `data/equipment.json`, name/town
-text files, and `data/distinguishing-features.csv`. `from __future__ import annotations` at the top of the file is
-load-bearing, not cosmetic — several `from_dict()` methods return-annotate with their own not-yet-fully-defined
-class (e.g. `ProfessionSkills.from_dict` returning `-> ProfessionSkills`), which raises `NameError` at import time
-without deferred annotation evaluation.
+- **Domain/rules** (`character.py`, `rules/`, `constants.py`): `Character` is the aggregate — mutable generation
+  state plus two plain dicts, `d` (front page) and `e` (back/equipment page), keyed by sheet field name. Those dicts
+  are the *only* contract with the PDF layer; the domain imports nothing about coordinates or reportlab.
+  `Character.generate` runs demographics → `rules.stats` → `rules.skills` → (optional) `rules.veterancy` → derived
+  attributes. Each `rules/*` module is functions taking and mutating a `Character` (via its `.rng`); they import
+  `Character` only under `TYPE_CHECKING` to avoid an import cycle. Shared game constants (stat pools, default/bonus
+  skills) live in `constants.py` so both sides can import them cleanly.
 
-**Character generation** (`Need2KnowCharacter`): one instance per generated character. `__init__` runs
-`generate_demographics` → `generate_stats` → `generate_skills` → (optionally) `veterancy` → `generate_derived_attributes`,
-then optionally `equip()`. All sheet values accumulate into two plain dicts: `self.d` (front page fields) and
-`self.e` (back/equipment page fields, only populated if the character is equipped) — these dicts are exactly what
-gets handed to the PDF-drawing layer, keyed by field name.
+- **Presentation** (`pdf.py`): `SheetWriter` wraps a reportlab `Canvas`. `field_xys` is the single source of truth
+  mapping field name → `(x, y, font_size)` on the sheet background. `fill_field` looks up each `d`/`e` key and draws
+  it; unknown keys are logged and skipped, never raised (so `test_pdf.py` asserts every emitted key *has* a
+  coordinate as a guard). Free-text fields that sit in a single-line box (currently just `education`, in
+  `field_max_widths`) run through `text.shrink_to_fit`, which shrinks font size then ellipsis-truncates — reuse this
+  for any new free-text field.
 
-Overrides for a specific character (name, sex, birth year/date, employer, education, label) are plumbed as
-constructor parameters through `generate_demographics`, applied *after* the random default is computed, so a
-partially-specified character (e.g. profession + name only) still gets randomized stats/skills/age as normal.
-`format_name()` normalizes free-text `--name` input into the sheet's `SURNAME, Given` convention unless the input
-already contains a comma. `find_profession()` resolves `-t/--type` against either a profession's data key or its
-display label, case-insensitively.
+- **Interface** (`cli.py`, `logging_setup.py`, `config.py`): argparse + the generation loop; `config.py` centralises
+  page geometry, colours, fonts, and all asset/data paths.
 
-**Rendering** (`Need2KnowPDF`): wraps a reportlab `Canvas`. `field_xys` is the single source of truth mapping a
-field name to its `(x, y, font_size)` position on the character sheet background image
-(`data/Character Sheet NO BACKGROUND FRONT.jpg`, drawn full-bleed at 612×792pt = US Letter). `fill_field()` looks up
-each key in `self.d`/`self.e` against `field_xys` and draws it; unknown keys are logged and skipped rather than
-raising. Fields expected to hold variable-length free text in a single-line box (currently just `education`) are
-listed in `field_max_widths` and run through `shrink_to_fit()`, which reduces font size and then truncates with an
-ellipsis rather than letting text run off the page — this pattern should be reused for any new free-text field
-rather than assuming short input.
+**Pure helpers** (`text.py`) — `parse_date`, `format_name`, `age_on`, `generate_label`, `shrink_to_fit` — are
+reportlab/faker-free and are the cheapest, highest-value things to unit test. `shrink_to_fit` takes a `measure`
+callback so it stays pure; `pdf.py` passes the reportlab width function.
 
-**Profession data files** (`data/professions*.json`) are swappable via `--professions` — e.g.
-`data/professions-fbi.json`, `-cia.json`, `-dea.json`, `-socom.json`, `-uk.json` — each defining the same
-key→`{label, number_to_generate, skills, bonds, equipment-kit, employer, division}` shape. Adding a new profession
-set means adding a new JSON file in that shape, not touching `generator.py`.
+**Profession data files** (`data/professions*.json`, e.g. `-fbi`, `-cia`, `-dea`, `-socom`, `-uk`) are swappable via
+`--professions`; each is `key → {label, number_to_generate, skills, bonds, equipment-kit, employer, division}`.
+Adding a profession set means adding a JSON file, not touching code.
 
-## Key CLI flags worth knowing about
+## Key CLI flags
 
-- `-t/--type` accepts a profession key or its display label (case-insensitive); invalid values print every valid
-  key/label pair.
-- Single-character generation: combine `-t` with `-c 1` and any of `--name`, `--sex`, `--birth-year`,
-  `--birthdate` (takes precedence over `--birth-year` and sets the exact birthday shown, not just the age),
-  `--employer`, `--education`.
-- `--veterancy` / `--no-damaged` / `-a`/`-A` control the veteran-generation rules (skill boosts, stat losses,
-  Damaged Veteran effects per AH p.38).
-- Full flag reference: `python generator.py -h`, and the "Customising" section of README.md.
+- `-t/--type` — profession key or display label (case-insensitive); unknown values list every valid key/label pair.
+- Single specific character: `-t` + `-c 1` + any of `--name`, `--sex`, `--birth-year`, `--birthdate` (precedence over
+  `--birth-year`; also sets the exact birthday shown), `--employer`, `--education`.
+- `--seed N` — reproducible output (same seed + options ⇒ identical characters).
+- `--veterancy` / `--no-damaged` / `-a`/`-A` — veteran rules (skill boosts, stat losses, Damaged Veteran effects,
+  AH p.38).
+- Full reference: `dggen -h` and the "Customising" section of README.md.

@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dggen"
+version = "2.0"
+description = "Generate pre-made character sheets (PDF) for the Delta Green pen-and-paper RPG."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE.md" }
+dependencies = [
+    "reportlab~=4.0",
+    "faker~=40.23.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pypdf>=4"]
+
+[project.scripts]
+dggen = "dggen.cli:main"
+
+[tool.setuptools]
+# The generator relies on fonts, images and data files under data/. Ship them with the package
+# so an installed dggen can find its assets via dggen.config.DATA_DIR.
+packages = ["dggen", "dggen.rules"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
