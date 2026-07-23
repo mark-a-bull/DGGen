@@ -72,11 +72,14 @@ one specific character instead, combine `-t`/`--type` with `-c 1` and any of the
 * `--education` - set the "Education and Occupational History" field, e.g.
   `--education "Ph.D. Anthropology, Miskatonic University 2014."`. Left blank by default. Long values are
   automatically shrunk to fit, and truncated with an ellipsis as a last resort.
+* `--seed` - seed the random number generator, e.g. `--seed 42`, so the same options reproduce the same
+  characters. Useful for regenerating an identical roster.
 
-For example:
+For example (the commands below can be run as `dggen ...`, `python -m dggen ...`, or `./generator.py ...` — all
+three are equivalent):
 
 ```sh
-./generator.py -t "Federal Agent" -c 1 --name "SMITH, John" --sex male --birthdate "1985-06-12" \
+dggen -t "Federal Agent" -c 1 --name "SMITH, John" --sex male --birthdate "1985-06-12" \
   --employer "FBI" --education "B.S. Criminal Justice, University of Maryland." -o "out/John Smith.pdf"
 ```
 
@@ -122,10 +125,22 @@ source .venv/bin/activate
 
 ### dependecies
 
-Install dependencies
+Install dependencies. DGGen is a package (`dggen`); installing it in editable mode also provides the `dggen`
+console command. Add the `[dev]` extra if you want to run the tests.
 
 ```sh
-pip install -U -r requirements.txt
+pip install -e ".[dev]"
+```
+
+(`pip install -U -r requirements.txt` still installs just the runtime dependencies if you prefer to run via
+`python generator.py`.)
+
+### test
+
+Run the test suite.
+
+```sh
+pytest -q
 ```
 
 ### out-dir

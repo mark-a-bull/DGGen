@@ -1,7 +1,12 @@
 *.py[cod]
+__pycache__/
 .venv/
 *.pdf
 *~
 .idea/
 .envrc
 out/
+*.egg-info/
+.pytest_cache/
+build/
+dist/
