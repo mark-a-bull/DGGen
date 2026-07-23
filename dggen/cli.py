@@ -66,7 +66,16 @@ def get_options(argv: list[str] | None = None) -> argparse.Namespace:
         "-e",
         "--employer",
         action="store",
-        help="Set employer for all generated characters.",
+        help="Set employer for all generated characters, overriding the profession's own "
+        "employer/division (if any) and the auto-generated value.",
+    )
+    gen.add_argument(
+        "--no-employer",
+        action="store_false",
+        dest="auto_employer",
+        default=True,
+        help="Don't auto-generate an employer for professions that don't already specify one; "
+        "leave the field blank unless --employer is also given.",
     )
     gen.add_argument(
         "--name",
@@ -191,6 +200,13 @@ def get_options(argv: list[str] | None = None) -> argparse.Namespace:
         help="Data file for auto-generated education/occupational history - defaults to "
         "%(default)s",
     )
+    data.add_argument(
+        "--employer-data",
+        action="store",
+        type=Path,
+        default=config.DEFAULT_EMPLOYER_DATA,
+        help="Data file for auto-generated employers - defaults to %(default)s",
+    )
     gen.add_argument(
         "-a",
         "--min-age",
@@ -286,6 +302,7 @@ def main(argv: list[str] | None = None) -> int:
                 veterancy_enabled=options.veterancy,
                 damaged=options.damaged,
                 auto_education=options.auto_education,
+                auto_employer=options.auto_employer,
             )
             if options.equip:
                 character.equip(profession.equipment_kit)

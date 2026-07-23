@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dggen.models import EducationData, Kit, Profession, ProfessionSkills, Weapon
+from dggen.models import EducationData, EmployerData, Kit, Profession, ProfessionSkills, Weapon
 
 
 def test_profession_skills_defaults():
@@ -86,3 +86,25 @@ def test_education_data_defaults_science_fields_to_empty():
         {"tier_defaults": {}, "institutions": {}, "professions": {}},
     )
     assert education.science_fields == []
+
+
+def test_employer_data_from_dict():
+    employer = EmployerData.from_dict(
+        {
+            "pools": {"federal_law": ["FBI", "DEA"]},
+            "professions": {
+                "federal agent": {"options": [{"pool": "federal_law"}]},
+                "police officer": {
+                    "options": [{"weight": 3, "template": "{city} Police Department"}],
+                },
+                "_default": {"options": [{"literal": ""}]},
+            },
+        },
+    )
+    assert employer.pools["federal_law"] == ["FBI", "DEA"]
+    option = employer.professions["federal agent"].options[0]
+    assert option.pool == "federal_law"
+    assert option.weight == 1  # default when omitted
+    template_option = employer.professions["police officer"].options[0]
+    assert template_option.weight == 3
+    assert template_option.template == "{city} Police Department"
