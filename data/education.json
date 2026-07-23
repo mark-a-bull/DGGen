@@ -1,0 +1,240 @@
+{
+  "tier_defaults": {
+    "doctorate": {
+      "grad_age": 28,
+      "templates": {"default": "Ph.D. {field}, {institution} {year}"},
+      "institution_pool": "university"
+    },
+    "md": {
+      "grad_age": 26,
+      "templates": {"default": "M.D., {institution} {year}"},
+      "institution_pool": "university"
+    },
+    "jd": {
+      "grad_age": 25,
+      "templates": {"default": "J.D., {institution} {year}"},
+      "institution_pool": "university"
+    },
+    "mba": {
+      "grad_age": 26,
+      "templates": {"default": "M.B.A., {institution} {year}"},
+      "institution_pool": "university"
+    },
+    "masters": {
+      "grad_age": 24,
+      "templates": {
+        "science": "M.S. {field}, {institution} {year}",
+        "arts": "M.A. {field}, {institution} {year}"
+      },
+      "institution_pool": "university"
+    },
+    "bachelors": {
+      "grad_age": 22,
+      "templates": {
+        "science": "B.S. {field}, {institution} {year}",
+        "arts": "B.A. {field}, {institution} {year}"
+      },
+      "institution_pool": "university"
+    },
+    "academy": {
+      "grad_age": 20,
+      "templates": {"default": "{institution} {year}"},
+      "institution_pool": "military_basic"
+    },
+    "highschool": {
+      "grad_age": 18,
+      "templates": {"default": "{institution} {year}"},
+      "institution_pool": "highschool"
+    }
+  },
+
+  "science_fields": [
+    "Computer Science", "Mechanical Engineering", "Electrical Engineering", "Civil Engineering",
+    "Engineering", "Nursing", "Emergency Medical Services", "Physics", "Chemistry", "Biology",
+    "Aeronautical Science", "Fire Science", "Business Administration", "Finance", "Economics",
+    "Accounting", "Management", "Criminal Justice", "Law Enforcement", "Aviation"
+  ],
+
+  "institutions": {
+    "university": [
+      "Harvard University", "Yale University", "Princeton University", "Columbia University",
+      "University of Chicago", "Stanford University", "University of Michigan",
+      "University of Texas", "University of California, Berkeley",
+      "University of California, Los Angeles", "University of Wisconsin", "Ohio State University",
+      "Penn State University", "University of Florida", "Georgetown University",
+      "Boston University", "New York University", "University of Washington",
+      "University of Virginia", "Indiana University"
+    ],
+    "highschool": [
+      "Lincoln High School", "Roosevelt High School", "Washington High School",
+      "Jefferson High School", "Central High School", "Kennedy High School",
+      "Franklin High School", "Madison High School", "Eisenhower High School",
+      "Monroe High School", "Adams High School", "Wilson High School", "Hamilton High School",
+      "Truman High School", "Riverside High School"
+    ],
+    "military_basic": [
+      "Basic Combat Training, Fort Benning", "Marine Corps Recruit Depot, Parris Island",
+      "Marine Corps Recruit Depot, San Diego", "Naval Recruit Training Command, Great Lakes",
+      "Air Force Basic Military Training, Lackland AFB", "U.S. Army Ranger School, Fort Benning",
+      "U.S. Army Special Forces Qualification Course, Fort Bragg",
+      "Basic Underwater Demolition/SEAL School, Coronado"
+    ],
+    "police_academy": [
+      "Police Academy", "State Police Training Academy", "Municipal Police Academy",
+      "Regional Law Enforcement Academy", "SWAT Basic Operator Course", "FBI Academy, Quantico"
+    ],
+    "fire_academy": [
+      "Fire Academy", "State Fire Training Academy", "Metropolitan Fire Academy",
+      "Regional Fire & Rescue Academy", "Emergency Services Training Center"
+    ],
+    "ems_academy": [
+      "EMT Basic Training Program", "Paramedic Training Institute", "Regional EMS Academy",
+      "Community College Paramedic Program", "State EMS Training Center"
+    ],
+    "flight_school": [
+      "Naval Aviation Schools Command, Pensacola", "Army Aviation Center, Fort Rucker",
+      "Air Force Undergraduate Pilot Training, Vance AFB",
+      "Embry-Riddle Aeronautical University", "Civilian Flight School"
+    ]
+  },
+
+  "professions": {
+    "anthropologist": {
+      "fields": ["Anthropology", "Archaeology"],
+      "tiers": {"doctorate": 5, "masters": 3, "bachelors": 1}
+    },
+    "business executive": {
+      "fields": ["Business Administration", "Finance", "Economics"],
+      "tiers": {"mba": 4, "bachelors": 3}
+    },
+    "computer scientist": {
+      "fields": ["Computer Science"],
+      "tiers": {"masters": 3, "bachelors": 5}
+    },
+    "criminal": {
+      "fields": ["Criminal Justice"],
+      "tiers": {"highschool": 6, "bachelors": 1}
+    },
+    "engineer": {
+      "fields": ["Mechanical Engineering", "Electrical Engineering", "Civil Engineering"],
+      "tiers": {"masters": 2, "bachelors": 5}
+    },
+    "federal agent": {
+      "fields": ["Criminal Justice", "Accounting", "Law Enforcement"],
+      "tiers": {"bachelors": 4, "jd": 1, "masters": 1}
+    },
+    "firefighter": {
+      "fields": ["Fire Science"],
+      "tiers": {"academy": 5, "highschool": 2, "bachelors": 1},
+      "institution_pool_overrides": {"academy": "fire_academy"}
+    },
+    "foreign service officer": {
+      "fields": ["International Relations", "Political Science"],
+      "tiers": {"masters": 3, "bachelors": 2}
+    },
+    "historian": {
+      "fields": ["History"],
+      "tiers": {"doctorate": 4, "masters": 4, "bachelors": 1}
+    },
+    "intelligence analyst": {
+      "fields": ["International Relations", "Political Science", "Area Studies"],
+      "tiers": {"masters": 4, "bachelors": 3}
+    },
+    "intelligence case officer": {
+      "fields": ["International Relations", "Political Science"],
+      "tiers": {"masters": 3, "bachelors": 3}
+    },
+    "lawyer": {
+      "tiers": {"jd": 1}
+    },
+    "marine": {
+      "fields": ["Criminal Justice", "Political Science"],
+      "tiers": {"academy": 5, "highschool": 3, "bachelors": 1}
+    },
+    "media specialist": {
+      "fields": ["Journalism", "Communications", "Film Studies"],
+      "tiers": {"bachelors": 5, "masters": 1}
+    },
+    "nurse": {
+      "fields": ["Nursing"],
+      "tiers": {"bachelors": 5, "masters": 1}
+    },
+    "paramedic": {
+      "fields": ["Emergency Medical Services"],
+      "tiers": {"academy": 4, "highschool": 2, "bachelors": 1},
+      "institution_pool_overrides": {"academy": "ems_academy"}
+    },
+    "physician": {
+      "tiers": {"md": 1}
+    },
+    "pilot": {
+      "fields": ["Aviation", "Aeronautical Science"],
+      "tiers": {"academy": 3, "bachelors": 3},
+      "institution_pool_overrides": {"academy": "flight_school"}
+    },
+    "police officer": {
+      "fields": ["Criminal Justice"],
+      "tiers": {"academy": 6, "bachelors": 1},
+      "institution_pool_overrides": {"academy": "police_academy"}
+    },
+    "program manager": {
+      "fields": ["Business Administration", "Management", "Engineering"],
+      "tiers": {"mba": 2, "masters": 2, "bachelors": 3}
+    },
+    "sailor": {
+      "fields": ["Criminal Justice", "Political Science"],
+      "tiers": {"academy": 5, "highschool": 3, "bachelors": 1}
+    },
+    "scientist": {
+      "fields": ["Physics", "Chemistry", "Biology"],
+      "tiers": {"doctorate": 5, "masters": 3}
+    },
+    "soldier": {
+      "fields": ["Criminal Justice", "Political Science"],
+      "tiers": {"academy": 5, "highschool": 4}
+    },
+    "special operator": {
+      "fields": ["Criminal Justice", "Political Science"],
+      "tiers": {"academy": 6, "bachelors": 1}
+    },
+    "socom": {
+      "fields": ["Criminal Justice", "Political Science"],
+      "tiers": {"academy": 6, "bachelors": 1}
+    },
+    "special forces operator": {
+      "fields": ["Criminal Justice", "Political Science"],
+      "tiers": {"academy": 6, "bachelors": 1}
+    },
+    "hostage rescue team": {
+      "fields": ["Criminal Justice", "Political Science"],
+      "tiers": {"academy": 6, "bachelors": 1},
+      "institution_pool_overrides": {"academy": "police_academy"}
+    },
+    "swat": {
+      "fields": ["Criminal Justice"],
+      "tiers": {"academy": 6, "bachelors": 2},
+      "institution_pool_overrides": {"academy": "police_academy"}
+    },
+    "counter terrorism officer": {
+      "fields": ["Criminal Justice", "Political Science"],
+      "tiers": {"academy": 6, "bachelors": 1},
+      "institution_pool_overrides": {"academy": "police_academy"}
+    },
+    "technical officer": {
+      "fields": ["Computer Science", "Electrical Engineering"],
+      "tiers": {"masters": 3, "bachelors": 4}
+    },
+    "field intelligence officer": {
+      "fields": ["International Relations", "Political Science"],
+      "tiers": {"masters": 3, "bachelors": 3}
+    },
+    "division political action group": {
+      "fields": ["Political Science", "International Relations"],
+      "tiers": {"masters": 2, "bachelors": 3}
+    },
+    "_default": {
+      "fields": ["Liberal Arts"],
+      "tiers": {"bachelors": 3, "highschool": 1}
+    }
+  }
+}

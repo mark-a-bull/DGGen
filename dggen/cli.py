@@ -78,8 +78,16 @@ def get_options(argv: list[str] | None = None) -> argparse.Namespace:
     gen.add_argument(
         "--education",
         action="store",
-        help="Set education and occupational history for all generated characters. "
-        "Left blank by default.",
+        help="Set education and occupational history for all generated characters, overriding "
+        "the auto-generated value.",
+    )
+    gen.add_argument(
+        "--no-education",
+        action="store_false",
+        dest="auto_education",
+        default=True,
+        help="Don't auto-generate education/occupational history; leave the field blank unless "
+        "--education is also given.",
     )
     gen.add_argument(
         "--sex",
@@ -175,6 +183,14 @@ def get_options(argv: list[str] | None = None) -> argparse.Namespace:
         default=config.DEFAULT_DISTINGUISHING,
         help="Data file for distinguishing features - defaults to %(default)s",
     )
+    data.add_argument(
+        "--education-data",
+        action="store",
+        type=Path,
+        default=config.DEFAULT_EDUCATION_DATA,
+        help="Data file for auto-generated education/occupational history - defaults to "
+        "%(default)s",
+    )
     gen.add_argument(
         "-a",
         "--min-age",
@@ -269,6 +285,7 @@ def main(argv: list[str] | None = None) -> int:
                 nationality=options.nationality,
                 veterancy_enabled=options.veterancy,
                 damaged=options.damaged,
+                auto_education=options.auto_education,
             )
             if options.equip:
                 character.equip(profession.equipment_kit)

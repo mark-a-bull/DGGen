@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dggen.models import Kit, Profession, ProfessionSkills, Weapon
+from dggen.models import EducationData, Kit, Profession, ProfessionSkills, Weapon
 
 
 def test_profession_skills_defaults():
@@ -56,3 +56,33 @@ def test_weapon_maps_hyphenated_keys_and_nested_damage():
 def test_kit_defaults_gear_to_empty():
     kit = Kit.from_dict({"weapons": [], "armour": []})
     assert kit.gear == []
+
+
+def test_education_data_from_dict():
+    education = EducationData.from_dict(
+        {
+            "tier_defaults": {
+                "bachelors": {
+                    "grad_age": 22,
+                    "templates": {"science": "B.S. {field}, {institution} {year}"},
+                    "institution_pool": "university",
+                },
+            },
+            "institutions": {"university": ["Test University"]},
+            "professions": {
+                "_default": {"fields": ["Liberal Arts"], "tiers": {"bachelors": 1}},
+            },
+            "science_fields": ["Computer Science"],
+        },
+    )
+    assert education.tier_defaults["bachelors"].grad_age == 22
+    assert education.institutions["university"] == ["Test University"]
+    assert education.professions["_default"].fields == ["Liberal Arts"]
+    assert education.science_fields == ["Computer Science"]
+
+
+def test_education_data_defaults_science_fields_to_empty():
+    education = EducationData.from_dict(
+        {"tier_defaults": {}, "institutions": {}, "professions": {}},
+    )
+    assert education.science_fields == []

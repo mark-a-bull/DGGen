@@ -169,6 +169,68 @@ class Kit:
 
 
 @dataclass
+class EducationTier:
+    """A level of schooling (e.g. 'bachelors'): the age it's typically completed at, which
+    institution list it draws from by default, and its sheet template(s).
+
+    `templates` maps a variant name to a template string. Tiers with only one phrasing use the
+    key "default"; tiers whose phrasing depends on the field (bachelors/masters: "B.S." vs
+    "B.A.") use "science"/"arts", picked deterministically by field rather than at random - see
+    EducationData.science_fields.
+    """
+
+    grad_age: int
+    templates: dict[str, str]
+    institution_pool: str
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> EducationTier:
+        return cls(
+            grad_age=d["grad_age"],
+            templates=d["templates"],
+            institution_pool=d["institution_pool"],
+        )
+
+
+@dataclass
+class EducationProfession:
+    """Which tiers a profession can roll (weighted), what {field} values to fill templates with,
+    and any per-tier institution pool override (e.g. a firefighter's 'academy' tier should draw
+    from fire academies, not the generic military-basic-training pool)."""
+
+    tiers: dict[str, int]
+    fields: list[str] = field(default_factory=list)
+    institution_pool_overrides: dict[str, str] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> EducationProfession:
+        return cls(
+            tiers=d["tiers"],
+            fields=d.get("fields", []),
+            institution_pool_overrides=d.get("institution_pool_overrides", {}),
+        )
+
+
+@dataclass
+class EducationData:
+    tier_defaults: dict[str, EducationTier]
+    institutions: dict[str, list[str]]
+    professions: dict[str, EducationProfession]
+    # Field names that take a "B.S./M.S." (rather than "B.A./M.A.") degree, e.g. "Computer
+    # Science". Anything not listed defaults to "B.A./M.A.".
+    science_fields: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> EducationData:
+        return cls(
+            tier_defaults={k: EducationTier.from_dict(v) for k, v in d["tier_defaults"].items()},
+            institutions=d["institutions"],
+            professions={k: EducationProfession.from_dict(v) for k, v in d["professions"].items()},
+            science_fields=d.get("science_fields", []),
+        )
+
+
+@dataclass
 class Data:
     """Everything loaded from disk, ready for generation. Name/town providers are callables."""
 
@@ -181,3 +243,4 @@ class Data:
     weapons: dict[str, Weapon]
     armour: dict[str, str]
     distinguishing: dict[tuple[str, int], list[str]]
+    education: EducationData
