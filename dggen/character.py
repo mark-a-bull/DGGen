@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any
 
 from dggen import constants, serialize
 from dggen.constants import MONTHS
-from dggen.rules import equipment, skills, stats, veterancy
+from dggen.rules import education, equipment, skills, stats, veterancy
 from dggen.text import age_on, format_name
 
 if TYPE_CHECKING:
@@ -98,6 +98,7 @@ class Character:
         nationality: str | None = None,
         veterancy_enabled: bool = False,
         damaged: bool = True,
+        auto_education: bool = True,
     ) -> Character:
         char = cls(data, rng, sex)
         char.profession = profession
@@ -114,6 +115,8 @@ class Character:
         )
         stats.generate_stats(char)
         skills.generate_skills(char)
+        if auto_education:
+            education.generate_education(char, data.education)
         if veterancy_enabled:
             veterancy.apply_veterancy(char, damaged)
         stats.generate_derived_attributes(char)

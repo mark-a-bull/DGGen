@@ -41,6 +41,7 @@ DEFAULT_SURNAMES = DATA_DIR / "surnames.txt"
 DEFAULT_TOWNS = DATA_DIR / "towns.txt"
 DEFAULT_EQUIPMENT = DATA_DIR / "equipment.json"
 DEFAULT_DISTINGUISHING = DATA_DIR / "distinguishing-features.csv"
+DEFAULT_EDUCATION_DATA = DATA_DIR / "education.json"
 
 DESCRIPTION = (
     "Generate characters for the Delta Green pen-and-paper roleplaying game "
