@@ -39,6 +39,13 @@ Reproducibility is what makes the domain testable: all randomness flows through 
 character including its name. If you touch generation, prefer asserting on the field dicts (`character.d`/`.e`) over
 rendered pixels.
 
+`tests/test_golden.py` compares the serialized `d`/`e` for every profession × seed × veterancy against a captured
+snapshot (`tests/golden/characters.json`) — the safety net for generation/serialization changes. If you *intend* to
+change output, regenerate it deterministically (build characters with a seeded `Rng`, dump `d`/`e` to that JSON) and
+eyeball the diff. Because the snapshot is captured in one process and checked in another, it also guards
+cross-process reproducibility — beware anything whose iteration order varies by run (a bare `set()` of skill names
+was one such bug).
+
 ### Verifying PDF output visually
 
 reportlab renders text at explicit `(x, y)` point coordinates onto a background JPG — you can't judge placement from
@@ -65,13 +72,22 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
   raises, only the CLI exits). `from __future__ import annotations` in `models.py` is load-bearing: several
   `from_dict` methods return-annotate their own class, which would `NameError` under eager annotation evaluation.
 
-- **Domain/rules** (`character.py`, `rules/`, `constants.py`): `Character` is the aggregate — mutable generation
-  state plus two plain dicts, `d` (front page) and `e` (back/equipment page), keyed by sheet field name. Those dicts
-  are the *only* contract with the PDF layer; the domain imports nothing about coordinates or reportlab.
-  `Character.generate` runs demographics → `rules.stats` → `rules.skills` → (optional) `rules.veterancy` → derived
-  attributes. Each `rules/*` module is functions taking and mutating a `Character` (via its `.rng`); they import
-  `Character` only under `TYPE_CHECKING` to avoid an import cycle. Shared game constants (stat pools, default/bonus
-  skills) live in `constants.py` so both sides can import them cleanly.
+- **Domain/rules** (`character.py`, `rules/`, `constants.py`, `equipped.py`): `Character` is the aggregate — typed
+  generation state (`stats`, `skills`, `bonds`, derived attributes, demographics, `weapons`, …). It knows nothing
+  about sheet coordinates or display formatting. `Character.generate` runs demographics → `rules.stats` →
+  `rules.skills` → (optional) `rules.veterancy` → derived attributes. Each `rules/*` module is functions taking and
+  mutating a `Character` (via its `.rng`); they import `Character` only under `TYPE_CHECKING` to avoid an import
+  cycle. Shared game constants (stat pools, default/bonus skills) live in `constants.py`. `equipped.py` holds
+  `EquippedWeapon`, the resolved per-character weapon (roll, effective damage modifier, assigned footnote markers) —
+  distinct from `models.Weapon` (the raw JSON).
+
+- **Serialization** (`serialize.py`): `to_front_fields`/`to_back_fields` turn a `Character`'s structured state into
+  the `d` (front) and `e` (back/equipment) field dicts keyed by sheet field name — the *only* contract with the PDF
+  layer. This is the single place that knows display formatting (checkbox `X`, `_x5` multiples, `DB=%d`, weapon
+  roll/damage strings). `Character.d`/`.e` are read-only properties delegating here, so callers/tests still use
+  `character.d`/`.e`. Kept reportlab-free. **RNG-ordering constraint:** anything that consumes `rng` (e.g.
+  distinguishing-feature lookups) must happen during generation, not in serialization, or a fixed seed stops
+  reproducing — `serialize` must be a pure function of already-generated state.
 
 - **Presentation** (`pdf.py`): `SheetWriter` wraps a reportlab `Canvas`. `field_xys` is the single source of truth
   mapping field name → `(x, y, font_size)` on the sheet background. `fill_field` looks up each `d`/`e` key and draws

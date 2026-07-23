@@ -1,13 +1,19 @@
-"""Equipment: resolving a kit into weapons and gear lines on the character's back page."""
+"""Equipment: resolving a kit into structured weapons and gear lines.
+
+Footnote markers are assigned here, in a fixed order (all gear-item notes first, then per weapon:
+lethality, then notes, then damage), because that order determines which glyph each note gets.
+The presentation layer only formats the already-resolved markers.
+"""
 
 from __future__ import annotations
 
 import logging
 from copy import copy
 from itertools import chain
-from textwrap import shorten, wrap
+from textwrap import wrap
 from typing import TYPE_CHECKING
 
+from dggen.equipped import EquippedWeapon
 from dggen.models import KitArmourEntry
 
 if TYPE_CHECKING:
@@ -41,16 +47,13 @@ def equip(char: Character, kit_name: str | None = None) -> None:
                 text = notes + item.text
             gear.append(text)
 
-        wrapped_gear = list(chain(*[wrap(item, 55, subsequent_indent="  ") for item in gear]))
-        if len(wrapped_gear) > MAX_GEAR_LINES:
+        char.gear_lines = list(chain(*[wrap(item, 55, subsequent_indent="  ") for item in gear]))
+        if len(char.gear_lines) > MAX_GEAR_LINES:
             logger.warning("Too much gear - truncated.")
-        for i, line in enumerate(wrapped_gear):
-            char.e[f"gear{i}"] = line
 
     if len(weapons) > MAX_WEAPONS:
         logger.warning("Too many weapons %s - truncated.", weapons)
-    for i, weapon in enumerate(weapons[:MAX_WEAPONS]):
-        equip_weapon(char, i, weapon)
+    char.weapons = [build_equipped_weapon(char, weapon) for weapon in weapons[:MAX_WEAPONS]]
 
 
 def build_weapon_list(char: Character, weapons_to_add: Iterable[WeaponRef]) -> list[Weapon]:
@@ -75,43 +78,31 @@ def build_weapon_list(char: Character, weapons_to_add: Iterable[WeaponRef]) -> l
     return result
 
 
-def equip_weapon(char: Character, slot: int, weapon: Weapon) -> None:
-    char.e[f"weapon{slot}"] = shorten(weapon.name, 15, placeholder="…")
-    roll = int(char.d.get(weapon.skill, 0) + weapon.bonus)
-    char.e[f"weapon{slot}_roll"] = f"{roll}%"
-    if weapon.base_range is not None:
-        char.e[f"weapon{slot}_range"] = weapon.base_range
-    if weapon.ap is not None:
-        char.e[f"weapon{slot}_ap"] = f"{weapon.ap}"
+def build_equipped_weapon(char: Character, weapon: Weapon) -> EquippedWeapon:
+    equipped = EquippedWeapon(
+        name=weapon.name,
+        roll=int(char.skills.get(weapon.skill, 0) + weapon.bonus),
+        base_range=weapon.base_range,
+        ap=weapon.ap,
+        ammo=weapon.ammo,
+        kill_radius=weapon.kill_radius,
+    )
     if weapon.lethality is not None:
-        lethality = weapon.lethality
-        lethality_note_indicator = (
-            char.store_footnote(lethality.special) if lethality.special else None
+        equipped.has_lethality = True
+        equipped.lethality_rating = weapon.lethality.rating
+        equipped.lethality_marker = (
+            char.store_footnote(weapon.lethality.special) if weapon.lethality.special else None
         )
-        char.e[f"weapon{slot}_lethality"] = (f"{lethality.rating}%" if lethality.rating else "") + (
-            f" {lethality_note_indicator}" if lethality_note_indicator else ""
-        )
-
-    if weapon.ammo is not None:
-        char.e[f"weapon{slot}_ammo"] = f"{weapon.ammo}"
-    if weapon.kill_radius is not None:
-        char.e[f"weapon{slot}_kill_radius"] = weapon.kill_radius
-
     if weapon.notes:
-        char.e[f"weapon{slot}_note"] = " ".join(char.store_footnote(n) for n in weapon.notes)
-
+        equipped.note_markers = [char.store_footnote(n) for n in weapon.notes]
     if weapon.damage is not None:
-        damage = weapon.damage
-        damage_note_indicator = char.store_footnote(damage.special) if damage.special else None
-
-        if damage.dice is not None:
-            damage_modifier = damage.modifier + (char.damage_bonus if damage.db_applies else 0)
-            damage_roll = f"{damage.dice}D{damage.die_type}" + (
-                f"{damage_modifier:+d}" if damage_modifier else ""
-            )
-        else:
-            damage_roll = ""
-
-        char.e[f"weapon{slot}_damage"] = damage_roll + (
-            f" {damage_note_indicator}" if damage_note_indicator else ""
+        equipped.has_damage = True
+        equipped.damage_dice = weapon.damage.dice
+        equipped.damage_die_type = weapon.damage.die_type
+        equipped.damage_modifier = weapon.damage.modifier + (
+            char.damage_bonus if weapon.damage.db_applies else 0
         )
+        equipped.damage_marker = (
+            char.store_footnote(weapon.damage.special) if weapon.damage.special else None
+        )
+    return equipped
