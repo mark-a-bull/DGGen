@@ -1,12 +1,14 @@
-"""The `Character` aggregate: mutable generation state plus the orchestration entry point.
+"""The `Character` aggregate: structured generation state.
 
-A `Character` accumulates its sheet values into two plain dicts, `d` (front page) and `e` (back /
-equipment page), keyed by field name. Those dicts are the *only* contract with the PDF layer, so
-the domain never imports anything about coordinates or reportlab.
+`Character` holds typed domain state - stats, skills, bonds, derived attributes, demographics,
+psychological state, and equipped weapons/gear. It knows nothing about sheet coordinates or
+display formatting. The `d` (front page) and `e` (back/equipment page) field dicts that the PDF
+layer consumes are produced on demand by `dggen.serialize`, exposed here as read-only properties
+so the rest of the app (and the tests) can keep using `character.d` / `character.e`.
 
-Rule steps live in `dggen.rules.*` as functions that take and mutate a `Character`; this class
-holds the shared state and the small helpers (`distinguishing`, `store_footnote`, ...) those
-steps lean on. `Character.generate(...)` runs them in order.
+Rule steps live in `dggen.rules.*` as functions that take and mutate a `Character` (via its
+`.rng`); this class holds the shared state and the small helpers (`distinguishing`,
+`store_footnote`) those steps lean on. `Character.generate(...)` runs them in order.
 """
 
 from __future__ import annotations
@@ -17,16 +19,19 @@ from datetime import date, datetime
 from textwrap import wrap
 from typing import TYPE_CHECKING, Any
 
-from dggen import constants
+from dggen import constants, serialize
 from dggen.constants import MONTHS
 from dggen.rules import equipment, skills, stats, veterancy
 from dggen.text import age_on, format_name
 
 if TYPE_CHECKING:
+    from dggen.equipped import EquippedWeapon
     from dggen.models import Data, Profession
     from dggen.rng import Rng
 
 logger = logging.getLogger("dggen")
+
+MAX_NOTE_LINES = 12
 
 
 class Character:
@@ -36,17 +41,42 @@ class Character:
         self.sex = sex
         self.profession: Profession | None = None
 
+        # Demographics
+        self.name = ""
+        self.profession_label = ""
+        self.employer = ""
+        self.education: str | None = None
+        self.nationality = ""
+        self.age = 0
+        self.birth_month_abbrev = ""
+        self.birth_day = 0
+
+        # Statistics and derived attributes
+        self.stats: dict[str, int] = {}
+        self.distinguishing_features: dict[str, str] = {}
+        self.hitpoints = 0
+        self.willpower = 0
+        self.sanity = 0
+        self.current_sanity: int | None = None
+        self.breaking_point = 0
+        self.damage_bonus = 0
+
+        # Skills and bonds
+        self.skills: dict[str, Any] = {}
+        self.bonds: dict[int, int] = {}
+        self.bonus_skills: list[str] = []
+
+        # Psychological / veterancy
         self.san_lost = 0
         self.adapted_to_violence = 0
         self.adapted_to_helplessness = 0
-        self.age = 0
-        self.damage_bonus = 0
-        self.bonus_skills: list[str] = []
+        self.disorder: str | None = None
+        self.damage_details: list[str] = []
 
-        # Sheet field dicts: d = front page, e = back / equipment page.
-        self.d: dict[str, Any] = {}
-        self.e: dict[str, Any] = {}
-
+        # Equipment
+        self.weapons: list[EquippedWeapon] = []
+        self.gear_lines: list[str] = []
+        self.note_lines: list[str] = []
         self.footnotes = defaultdict(iter(constants.FOOTNOTE_MARKERS).__next__)
 
     @classmethod
@@ -101,32 +131,30 @@ class Character:
         birthdate: date | None,
         nationality: str | None,
     ) -> None:
-        if self.sex == "male":
-            self.d["male"] = "X"
-            self.d["name"] = self.data.family_names().upper() + ", " + self.data.male_given_names()
-        else:
-            self.d["female"] = "X"
-            self.d["name"] = (
-                self.data.family_names().upper() + ", " + self.data.female_given_names()
-            )
         if name_override:
-            self.d["name"] = format_name(name_override)
-        self.d["profession"] = label_override or self.profession.label
-        self.d["employer"] = employer_override or ", ".join(
+            self.name = format_name(name_override)
+        elif self.sex == "male":
+            self.name = self.data.family_names().upper() + ", " + self.data.male_given_names()
+        else:
+            self.name = self.data.family_names().upper() + ", " + self.data.female_given_names()
+        self.profession_label = label_override or self.profession.label
+        self.employer = employer_override or ", ".join(
             e for e in [self.profession.employer, self.profession.division] if e
         )
-        if education_override:
-            self.d["education"] = education_override
-        self.d["nationality"] = (f"({nationality}) " if nationality else "") + self.data.towns()
+        self.education = education_override
+        self.nationality = (f"({nationality}) " if nationality else "") + self.data.towns()
         if birthdate:
             self.age = age_on(birthdate, datetime.now().date())
-            self.d["age"] = "%d    (%s %d)" % (self.age, MONTHS[birthdate.month - 1], birthdate.day)
+            self.birth_month_abbrev = MONTHS[birthdate.month - 1]
+            self.birth_day = birthdate.day
         elif birth_year:
             self.age = datetime.now().year - birth_year
-            self.d["age"] = "%d    (%s %d)" % (self.age, self.rng.choice(MONTHS), self.rng.randint(1, 28))
+            self.birth_month_abbrev = self.rng.choice(MONTHS)
+            self.birth_day = self.rng.randint(1, 28)
         else:
             self.age = self.rng.randint(min_age, max_age)
-            self.d["age"] = "%d    (%s %d)" % (self.age, self.rng.choice(MONTHS), self.rng.randint(1, 28))
+            self.birth_month_abbrev = self.rng.choice(MONTHS)
+            self.birth_day = self.rng.randint(1, 28)
 
     def equip(self, kit_name: str | None = None) -> None:
         equipment.equip(self, kit_name)
@@ -139,19 +167,29 @@ class Character:
         return self.footnotes[note] if note else None
 
     def print_footnotes(self) -> None:
+        """Flush registered footnotes into wrapped note lines for the back page."""
         notes = [
             line
             for note, pointer in list(self.footnotes.items())
             for line in wrap(f"{pointer} {note}", 40, subsequent_indent="  ")
         ]
-        if len(notes) > 12:
+        if len(notes) > MAX_NOTE_LINES:
             logger.warning("Too many footnotes - truncated.")
-        for i, note in enumerate(notes[:12]):
-            self.e[f"note{i}"] = note
+        self.note_lines = notes[:MAX_NOTE_LINES]
+
+    @property
+    def d(self) -> dict[str, Any]:
+        """Front-page field dict, produced from structured state on demand."""
+        return serialize.to_front_fields(self)
+
+    @property
+    def e(self) -> dict[str, Any]:
+        """Back / equipment-page field dict, produced from structured state on demand."""
+        return serialize.to_back_fields(self)
 
     def __str__(self) -> str:
         return ", ".join(
-            self.d.get(i)
-            for i in ("name", "profession", "employer", "department", "age")
-            if self.d.get(i)
+            str(part)
+            for part in (self.name, self.profession_label, self.employer, self.age)
+            if part
         )

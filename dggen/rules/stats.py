@@ -26,22 +26,17 @@ def generate_stats(char: Character) -> None:
     pool = list(char.rng.choice(STAT_POOLS + rolled))
     char.rng.shuffle(pool)
     for score, stat in zip(pool, STATS, strict=False):
-        char.d[stat] = score
+        char.stats[stat] = score
         logger.debug("%s,stat %s is %s", char, stat, score)
 
 
 def generate_derived_attributes(char: Character) -> None:
-    char.d["hitpoints"] = round((char.d["strength"] + char.d["constitution"]) / 2.0)
-    char.d["willpower"] = char.d["power"]
-    char.d["sanity"] = char.d["power"] * 5
+    char.hitpoints = round((char.stats["strength"] + char.stats["constitution"]) / 2.0)
+    char.willpower = char.stats["power"]
+    char.sanity = char.stats["power"] * 5
     if char.san_lost:
-        char.d["current_sanity"] = (char.d["power"] * 5) - char.san_lost
-    char.d["breaking point"] = char.d["sanity"] - char.d["power"]
-    char.damage_bonus = damage_bonus(char.d["strength"])
-    char.d["damage bonus"] = "DB=%d" % char.damage_bonus
+        char.current_sanity = (char.stats["power"] * 5) - char.san_lost
+    char.breaking_point = char.sanity - char.stats["power"]
+    char.damage_bonus = damage_bonus(char.stats["strength"])
     for stat in STATS:
-        score = char.d[stat]
-        char.d[f"{stat}_x5"] = score * 5
-        char.d[f"{stat}_distinguishing"] = char.distinguishing(stat, score)
-    char.d["violence"] = "  ".join("X" for _ in range(char.adapted_to_violence))
-    char.d["helplessness"] = "  ".join("X" for _ in range(char.adapted_to_helplessness))
+        char.distinguishing_features[stat] = char.distinguishing(stat, char.stats[stat])
