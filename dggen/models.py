@@ -231,6 +231,49 @@ class EducationData:
 
 
 @dataclass
+class EmployerOption:
+    """One weighted way to fill in a profession's employer: a name drawn from a shared `pool`, a
+    `{city}` `template` resolved against the character's hometown, or a fixed `literal`. Exactly
+    one of the three should be set; an option with none of them resolves to a blank employer."""
+
+    weight: int = 1
+    pool: str | None = None
+    template: str | None = None
+    literal: str | None = None
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> EmployerOption:
+        return cls(
+            weight=d.get("weight", 1),
+            pool=d.get("pool"),
+            template=d.get("template"),
+            literal=d.get("literal"),
+        )
+
+
+@dataclass
+class EmployerProfession:
+    options: list[EmployerOption]
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> EmployerProfession:
+        return cls(options=[EmployerOption.from_dict(o) for o in d["options"]])
+
+
+@dataclass
+class EmployerData:
+    pools: dict[str, list[str]]
+    professions: dict[str, EmployerProfession]
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> EmployerData:
+        return cls(
+            pools=d["pools"],
+            professions={k: EmployerProfession.from_dict(v) for k, v in d["professions"].items()},
+        )
+
+
+@dataclass
 class Data:
     """Everything loaded from disk, ready for generation. Name/town providers are callables."""
 
@@ -244,3 +287,4 @@ class Data:
     armour: dict[str, str]
     distinguishing: dict[tuple[str, int], list[str]]
     education: EducationData
+    employer: EmployerData

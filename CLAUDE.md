@@ -73,25 +73,37 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
   `from_dict` methods return-annotate their own class, which would `NameError` under eager annotation evaluation.
 
 - **Domain/rules** (`character.py`, `rules/`, `constants.py`, `equipped.py`): `Character` is the aggregate — typed
-  generation state (`stats`, `skills`, `bonds`, derived attributes, demographics, `weapons`, …). It knows nothing
-  about sheet coordinates or display formatting. `Character.generate` runs demographics → `rules.stats` →
-  `rules.skills` → (default-on) `rules.education` → (optional) `rules.veterancy` → derived attributes. Each
-  `rules/*` module is functions taking and mutating a `Character` (via its `.rng`); they import `Character` only
-  under `TYPE_CHECKING` to avoid an import cycle. Shared game constants (stat pools, default/bonus skills) live in
-  `constants.py`. `equipped.py` holds `EquippedWeapon`, the resolved per-character weapon (roll, effective damage
-  modifier, assigned footnote markers) — distinct from `models.Weapon` (the raw JSON).
+  generation state (`stats`, `skills`, `bonds`, derived attributes, demographics, `town`, `weapons`, …). It knows
+  nothing about sheet coordinates or display formatting. `Character.generate` runs demographics → (default-on)
+  `rules.employer` → `rules.stats` → `rules.skills` → (default-on) `rules.education` → (optional)
+  `rules.veterancy` → derived attributes. Each `rules/*` module is functions taking and mutating a `Character`
+  (via its `.rng`); they import `Character` only under `TYPE_CHECKING` to avoid an import cycle. Shared game
+  constants (stat pools, default/bonus skills) live in `constants.py`. `equipped.py` holds `EquippedWeapon`, the
+  resolved per-character weapon (roll, effective damage modifier, assigned footnote markers) — distinct from
+  `models.Weapon` (the raw JSON).
 
-  `rules/education.py` auto-fills the "Education and Occupational History" field from
-  `data/education.json` unless `--education` (an exact override) or `--no-education` (leave blank) is given. It
-  looks up the profession by **display label**, lowercased (not the JSON key), since many different
-  `professions*.json` keys across FBI/CIA/SOCOM/UK variants share one real-world label (`agent`, `cid`,
-  `nsb-agent` → "Federal Agent") — same resolution style as `find_profession`. Unknown labels fall back to the
-  `_default` entry. Degree phrasing (`B.S.` vs `B.A.`, `M.S.` vs `M.A.`) is chosen deterministically from the
+  `rules/education.py` and `rules/employer.py` both auto-fill a sheet field from a JSON data file (`education.json`,
+  `employers.json`) unless an explicit override (`--education`/`--employer`) or a "don't" flag
+  (`--no-education`/`--no-employer`) is given, and both look up the profession by **display label**, lowercased
+  (not the JSON key), since many different `professions*.json` keys across FBI/CIA/SOCOM/UK variants share one
+  real-world label (`agent`, `cid`, `nsb-agent` → "Federal Agent") — same resolution style as `find_profession`.
+  Unknown labels fall back to each file's `_default` entry.
+
+  `rules/education.py`: degree phrasing (`B.S.` vs `B.A.`, `M.S.` vs `M.A.`) is chosen deterministically from the
   field name via `EducationData.science_fields`, not by a second RNG draw — this was a real bug (`M.A. Computer
   Science`) caught by hand-inspecting output before locking in the golden snapshot; if you add a new field to
   `education.json`, add it to `science_fields` too if it should take a `B.S./M.S.` degree. A tier is only eligible
   if the character is old enough (`tier.grad_age <= age`); characters younger than every eligible tier's
   `grad_age` simply get no bio rather than an error.
+
+  `rules/employer.py`: only fills `char.employer` if it's still blank after demographics — i.e. neither
+  `--employer` nor the profession's own `employer`/`division` (hardcoded in variant files like
+  `professions-fbi.json`, e.g. `"FBI, CID"`) provided one, so those must never be clobbered. Each profession in
+  `employers.json` maps to a weighted list of options, each either a `pool` (named list, e.g. real federal
+  agencies), a `template` with `{city}` (resolved against `char.town`, e.g. `"{city} Police Department"`), or a
+  fixed `literal` (e.g. `"U.S. Navy"`). `char.town` is the raw town string set in `generate_demographics`
+  (`char.nationality` is `f"({nationality}) " + char.town`, not the other way around — read `char.town`, not a
+  parsed-back `char.nationality`, if you need just the city).
 
 - **Serialization** (`serialize.py`): `to_front_fields`/`to_back_fields` turn a `Character`'s structured state into
   the `d` (front) and `e` (back/equipment) field dicts keyed by sheet field name — the *only* contract with the PDF
@@ -104,7 +116,7 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
 - **Presentation** (`pdf.py`): `SheetWriter` wraps a reportlab `Canvas`. `field_xys` is the single source of truth
   mapping field name → `(x, y, font_size)` on the sheet background. `fill_field` looks up each `d`/`e` key and draws
   it; unknown keys are logged and skipped, never raised (so `test_pdf.py` asserts every emitted key *has* a
-  coordinate as a guard). Free-text fields that sit in a single-line box (currently just `education`, in
+  coordinate as a guard). Free-text fields that sit in a single-line box (`education` and `employer`, in
   `field_max_widths`) run through `text.shrink_to_fit`, which shrinks font size then ellipsis-truncates — reuse this
   for any new free-text field.
 
@@ -126,6 +138,9 @@ Adding a profession set means adding a JSON file, not touching code.
   `--birth-year`; also sets the exact birthday shown), `--employer`, `--education`.
 - Education/occupational history is auto-generated by default (age- and profession-appropriate degree +
   institution); `--education "..."` overrides it exactly, `--no-education` leaves it blank instead.
+- Employer is auto-generated by default for professions without one hardcoded in the profession data
+  (age-irrelevant, but town-aware for local roles like police/fire); `--employer "..."` overrides it exactly,
+  `--no-employer` leaves it blank instead.
 - `--seed N` — reproducible output (same seed + options ⇒ identical characters).
 - `--veterancy` / `--no-damaged` / `-a`/`-A` — veteran rules (skill boosts, stat losses, Damaged Veteran effects,
   AH p.38).

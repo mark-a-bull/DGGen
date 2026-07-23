@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any
 
 from dggen import constants, serialize
 from dggen.constants import MONTHS
-from dggen.rules import education, equipment, skills, stats, veterancy
+from dggen.rules import education, employer, equipment, skills, stats, veterancy
 from dggen.text import age_on, format_name
 
 if TYPE_CHECKING:
@@ -46,6 +46,7 @@ class Character:
         self.profession_label = ""
         self.employer = ""
         self.education: str | None = None
+        self.town = ""
         self.nationality = ""
         self.age = 0
         self.birth_month_abbrev = ""
@@ -99,6 +100,7 @@ class Character:
         veterancy_enabled: bool = False,
         damaged: bool = True,
         auto_education: bool = True,
+        auto_employer: bool = True,
     ) -> Character:
         char = cls(data, rng, sex)
         char.profession = profession
@@ -113,6 +115,8 @@ class Character:
             birthdate,
             nationality,
         )
+        if auto_employer:
+            employer.generate_employer(char, data.employer)
         stats.generate_stats(char)
         skills.generate_skills(char)
         if auto_education:
@@ -145,7 +149,8 @@ class Character:
             e for e in [self.profession.employer, self.profession.division] if e
         )
         self.education = education_override
-        self.nationality = (f"({nationality}) " if nationality else "") + self.data.towns()
+        self.town = self.data.towns()
+        self.nationality = (f"({nationality}) " if nationality else "") + self.town
         if birthdate:
             self.age = age_on(birthdate, datetime.now().date())
             self.birth_month_abbrev = MONTHS[birthdate.month - 1]

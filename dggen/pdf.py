@@ -251,7 +251,7 @@ class SheetWriter:
 
     # Fields whose value must be shrunk (and, failing that, truncated) to fit within this many
     # points, since they sit in a single-line box rather than wrapping to a new page area.
-    field_max_widths = {"education": 260}
+    field_max_widths = {"education": 260, "employer": 260}
 
     def __init__(self, filename: Path, pages_per_sheet: int = 1) -> None:
         self.filename = filename

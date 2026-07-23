@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 from faker import Faker
 
-from dggen.models import Data, EducationData, Kit, Profession, Weapon
+from dggen.models import Data, EducationData, EmployerData, Kit, Profession, Weapon
 
 if TYPE_CHECKING:
     from argparse import Namespace
@@ -97,6 +97,9 @@ def load_data(options: Namespace, rng: Rng) -> Data:
     with options.education_data.open() as f:
         education = EducationData.from_dict(json.load(f))
 
+    with options.employer_data.open() as f:
+        employer = EmployerData.from_dict(json.load(f))
+
     return Data(
         male_given_names=male_given_names,
         female_given_names=female_given_names,
@@ -108,4 +111,5 @@ def load_data(options: Namespace, rng: Rng) -> Data:
         armour=armour,
         distinguishing=distinguishing,
         education=education,
+        employer=employer,
     )
