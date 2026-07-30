@@ -29355,3 +29355,58 @@ Zurich, KS
 Zwingle, IA
 Zwolle, LA
 
+
+# Top 10 most populous towns per state (by city-proper population, where data was
+# available) not already above, added from the SimpleMaps US Cities database
+# (https://simplemaps.com/data/us-cities, Basic/free license).
+Palmer, AK
+Bethel, AK
+Kodiak, AK
+Dothan, AL
+Madison, AL
+North Little Rock, AR
+Centennial, CO
+Elsmere, DE
+New Castle, DE
+Cape Coral, FL
+Johns Creek, GA
+Coeur d'Alene, ID
+Lewiston, ID
+Salina, KS
+Newton, MA
+Frederick, MD
+Biddeford, ME
+O'Fallon, MO
+Kalispell, MT
+Winston-Salem, NC
+West Fargo, ND
+Williston, ND
+Dickinson, ND
+Jamestown, ND
+Wahpeton, ND
+Columbus, NE
+Dover, NH
+Keene, NH
+Portsmouth, NH
+Laconia, NH
+Union City, NJ
+Elko, NV
+Mesquite, NV
+Queens, NY
+Manhattan, NY
+Pittsburgh, PA
+Woonsocket, RI
+Newport, RI
+Goose Creek, SC
+Hilton Head Island, SC
+Rapid City, SD
+Mitchell, SD
+Saint George, UT
+South Jordan, UT
+Spokane Valley, WA
+Morgantown, WV
+Wheeling, WV
+Fairmont, WV
+Clarksburg, WV
+Riverton, WY
+Jackson, WY
