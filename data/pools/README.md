@@ -39,3 +39,10 @@ an *existing* pool that's already wired up, you don't need to touch those files 
 profession/equipment/education/employer JSON files aren't value pools — they're structured
 configuration that reference the pools here by id. Those do require understanding their shape;
 see `CLAUDE.md` if you're changing them.
+
+## Data sources
+
+Most values here were originally hand-authored. `towns/us.txt` also includes each state's top 10
+most populous towns (city-proper population, where available) not already present, sourced from
+the [SimpleMaps US Cities database](https://simplemaps.com/data/us-cities) (Basic/free license,
+which requires this attribution link).
