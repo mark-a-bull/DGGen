@@ -1,24 +1,26 @@
 {
+  "science_fields_pool": "fields/science",
+
   "tier_defaults": {
     "doctorate": {
       "grad_age": 28,
       "templates": {"default": "Ph.D. {field}, {institution} {year}"},
-      "institution_pool": "university"
+      "institution_pool": "institutions/university"
     },
     "md": {
       "grad_age": 26,
       "templates": {"default": "M.D., {institution} {year}"},
-      "institution_pool": "university"
+      "institution_pool": "institutions/university"
     },
     "jd": {
       "grad_age": 25,
       "templates": {"default": "J.D., {institution} {year}"},
-      "institution_pool": "university"
+      "institution_pool": "institutions/university"
     },
     "mba": {
       "grad_age": 26,
       "templates": {"default": "M.B.A., {institution} {year}"},
-      "institution_pool": "university"
+      "institution_pool": "institutions/university"
     },
     "masters": {
       "grad_age": 24,
@@ -26,7 +28,7 @@
         "science": "M.S. {field}, {institution} {year}",
         "arts": "M.A. {field}, {institution} {year}"
       },
-      "institution_pool": "university"
+      "institution_pool": "institutions/university"
     },
     "bachelors": {
       "grad_age": 22,
@@ -34,68 +36,18 @@
         "science": "B.S. {field}, {institution} {year}",
         "arts": "B.A. {field}, {institution} {year}"
       },
-      "institution_pool": "university"
+      "institution_pool": "institutions/university"
     },
     "academy": {
       "grad_age": 20,
       "templates": {"default": "{institution} {year}"},
-      "institution_pool": "military_basic"
+      "institution_pool": "institutions/military-basic"
     },
     "highschool": {
       "grad_age": 18,
       "templates": {"default": "{institution} {year}"},
-      "institution_pool": "highschool"
+      "institution_pool": "institutions/highschool"
     }
-  },
-
-  "science_fields": [
-    "Computer Science", "Mechanical Engineering", "Electrical Engineering", "Civil Engineering",
-    "Engineering", "Nursing", "Emergency Medical Services", "Physics", "Chemistry", "Biology",
-    "Aeronautical Science", "Fire Science", "Business Administration", "Finance", "Economics",
-    "Accounting", "Management", "Criminal Justice", "Law Enforcement", "Aviation"
-  ],
-
-  "institutions": {
-    "university": [
-      "Harvard University", "Yale University", "Princeton University", "Columbia University",
-      "University of Chicago", "Stanford University", "University of Michigan",
-      "University of Texas", "University of California, Berkeley",
-      "University of California, Los Angeles", "University of Wisconsin", "Ohio State University",
-      "Penn State University", "University of Florida", "Georgetown University",
-      "Boston University", "New York University", "University of Washington",
-      "University of Virginia", "Indiana University"
-    ],
-    "highschool": [
-      "Lincoln High School", "Roosevelt High School", "Washington High School",
-      "Jefferson High School", "Central High School", "Kennedy High School",
-      "Franklin High School", "Madison High School", "Eisenhower High School",
-      "Monroe High School", "Adams High School", "Wilson High School", "Hamilton High School",
-      "Truman High School", "Riverside High School"
-    ],
-    "military_basic": [
-      "Basic Combat Training, Fort Benning", "Marine Corps Recruit Depot, Parris Island",
-      "Marine Corps Recruit Depot, San Diego", "Naval Recruit Training Command, Great Lakes",
-      "Air Force Basic Military Training, Lackland AFB", "U.S. Army Ranger School, Fort Benning",
-      "U.S. Army Special Forces Qualification Course, Fort Bragg",
-      "Basic Underwater Demolition/SEAL School, Coronado"
-    ],
-    "police_academy": [
-      "Police Academy", "State Police Training Academy", "Municipal Police Academy",
-      "Regional Law Enforcement Academy", "SWAT Basic Operator Course", "FBI Academy, Quantico"
-    ],
-    "fire_academy": [
-      "Fire Academy", "State Fire Training Academy", "Metropolitan Fire Academy",
-      "Regional Fire & Rescue Academy", "Emergency Services Training Center"
-    ],
-    "ems_academy": [
-      "EMT Basic Training Program", "Paramedic Training Institute", "Regional EMS Academy",
-      "Community College Paramedic Program", "State EMS Training Center"
-    ],
-    "flight_school": [
-      "Naval Aviation Schools Command, Pensacola", "Army Aviation Center, Fort Rucker",
-      "Air Force Undergraduate Pilot Training, Vance AFB",
-      "Embry-Riddle Aeronautical University", "Civilian Flight School"
-    ]
   },
 
   "professions": {
@@ -126,7 +78,7 @@
     "firefighter": {
       "fields": ["Fire Science"],
       "tiers": {"academy": 5, "highschool": 2, "bachelors": 1},
-      "institution_pool_overrides": {"academy": "fire_academy"}
+      "institution_pool_overrides": {"academy": "institutions/fire-academy"}
     },
     "foreign service officer": {
       "fields": ["International Relations", "Political Science"],
@@ -162,7 +114,7 @@
     "paramedic": {
       "fields": ["Emergency Medical Services"],
       "tiers": {"academy": 4, "highschool": 2, "bachelors": 1},
-      "institution_pool_overrides": {"academy": "ems_academy"}
+      "institution_pool_overrides": {"academy": "institutions/ems-academy"}
     },
     "physician": {
       "tiers": {"md": 1}
@@ -170,12 +122,12 @@
     "pilot": {
       "fields": ["Aviation", "Aeronautical Science"],
       "tiers": {"academy": 3, "bachelors": 3},
-      "institution_pool_overrides": {"academy": "flight_school"}
+      "institution_pool_overrides": {"academy": "institutions/flight-school"}
     },
     "police officer": {
       "fields": ["Criminal Justice"],
       "tiers": {"academy": 6, "bachelors": 1},
-      "institution_pool_overrides": {"academy": "police_academy"}
+      "institution_pool_overrides": {"academy": "institutions/police-academy"}
     },
     "program manager": {
       "fields": ["Business Administration", "Management", "Engineering"],
@@ -208,17 +160,17 @@
     "hostage rescue team": {
       "fields": ["Criminal Justice", "Political Science"],
       "tiers": {"academy": 6, "bachelors": 1},
-      "institution_pool_overrides": {"academy": "police_academy"}
+      "institution_pool_overrides": {"academy": "institutions/police-academy"}
     },
     "swat": {
       "fields": ["Criminal Justice"],
       "tiers": {"academy": 6, "bachelors": 2},
-      "institution_pool_overrides": {"academy": "police_academy"}
+      "institution_pool_overrides": {"academy": "institutions/police-academy"}
     },
     "counter terrorism officer": {
       "fields": ["Criminal Justice", "Political Science"],
       "tiers": {"academy": 6, "bachelors": 1},
-      "institution_pool_overrides": {"academy": "police_academy"}
+      "institution_pool_overrides": {"academy": "institutions/police-academy"}
     },
     "technical officer": {
       "fields": ["Computer Science", "Electrical Engineering"],

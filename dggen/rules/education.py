@@ -40,8 +40,8 @@ def generate_education(char: Character, education_data: EducationData) -> None:
     tier_name = char.rng.choices(list(eligible), weights=list(eligible.values()), k=1)[0]
     tier = education_data.tier_defaults[tier_name]
 
-    pool_name = entry.institution_pool_overrides.get(tier_name, tier.institution_pool)
-    institution = char.rng.choice(education_data.institutions[pool_name])
+    pool_id = entry.institution_pool_overrides.get(tier_name, tier.institution_pool)
+    institution = char.data.pools.choice(pool_id, char.rng)
     field = char.rng.choice(entry.fields) if entry.fields else ""
     grad_year = datetime.now().year - (char.age - tier.grad_age)
 
@@ -49,7 +49,8 @@ def generate_education(char: Character, education_data: EducationData) -> None:
     # with the subject (never "B.A. Computer Science"). Tiers with only one phrasing (jd, md,
     # academy, ...) just use "default".
     if field and "science" in tier.templates:
-        variant = "science" if field in education_data.science_fields else "arts"
+        science_fields = char.data.pools.values(education_data.science_fields_pool)
+        variant = "science" if field in science_fields else "arts"
     else:
         variant = "default"
     template = tier.templates.get(variant) or next(iter(tier.templates.values()))

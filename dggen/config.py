@@ -14,6 +14,11 @@ from pathlib import Path
 _DEFAULT_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 DATA_DIR = Path(os.environ.get("DGGEN_DATA_DIR", _DEFAULT_DATA_DIR))
 
+# Flat/weighted value-list pools live under here (dggen/pools.py auto-discovers every file).
+# Adding a value to an existing category, or a whole new one, never requires touching code -
+# see data/pools/README.md.
+POOLS_DIR = DATA_DIR / "pools"
+
 # US Letter, in points (1/72 inch). reportlab's origin is bottom-left, y increasing upward.
 PAGE_WIDTH = 612
 PAGE_HEIGHT = 792
@@ -35,14 +40,18 @@ SHEET_BACK_IMAGE = DATA_DIR / "Character Sheet NO BACKGROUND BACK.jpg"
 
 # Default data file locations, used as argparse defaults.
 DEFAULT_PROFESSIONS = DATA_DIR / "professions.json"
-DEFAULT_MALE_NAMES = DATA_DIR / "boys1986.txt"
-DEFAULT_FEMALE_NAMES = DATA_DIR / "girls1986.txt"
-DEFAULT_SURNAMES = DATA_DIR / "surnames.txt"
-DEFAULT_TOWNS = DATA_DIR / "towns.txt"
 DEFAULT_EQUIPMENT = DATA_DIR / "equipment.json"
 DEFAULT_DISTINGUISHING = DATA_DIR / "distinguishing-features.csv"
 DEFAULT_EDUCATION_DATA = DATA_DIR / "education.json"
 DEFAULT_EMPLOYER_DATA = DATA_DIR / "employers.json"
+
+# Default pool ids (not file paths) for the auto-generated name/town providers - resolved
+# against Pools, which also accepts an arbitrary file path here instead of an id (e.g.
+# --towns /my/custom-towns.csv), for a completely custom list living outside data/pools/.
+DEFAULT_MALE_NAMES = "names/male-given"
+DEFAULT_FEMALE_NAMES = "names/female-given"
+DEFAULT_SURNAMES = "names/surnames"
+DEFAULT_TOWNS = "towns/us"
 
 DESCRIPTION = (
     "Generate characters for the Delta Green pen-and-paper roleplaying game "

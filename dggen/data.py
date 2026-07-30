@@ -7,13 +7,14 @@ reproducible under a fixed seed.
 from __future__ import annotations
 
 import csv
-import itertools
 import json
 from typing import TYPE_CHECKING
 
 from faker import Faker
 
+from dggen import config
 from dggen.models import Data, EducationData, EmployerData, Kit, Profession, Weapon
+from dggen.pools import Pools
 
 if TYPE_CHECKING:
     from argparse import Namespace
@@ -43,6 +44,8 @@ def find_profession(professions: dict[str, Profession], type_: str) -> Professio
 
 
 def load_data(options: Namespace, rng: Rng) -> Data:
+    pools = Pools(config.POOLS_DIR)
+
     if options.names:
         faker = Faker(options.names)
         if getattr(options, "seed", None) is not None:
@@ -51,32 +54,25 @@ def load_data(options: Namespace, rng: Rng) -> Data:
         female_given_names = faker.first_name_female
         family_names = faker.last_name
     else:
-        with options.male_given_names.open() as f:
-            _male = f.read().splitlines()
-        with options.female_given_names.open() as f:
-            _female = f.read().splitlines()
-        with options.surnames.open() as f:
-            _surnames = f.read().splitlines()
+        # Validate eagerly: a bad --male-given-names/etc. should fail at startup, not partway
+        # through generating a roster.
+        pools.validate(options.male_given_names)
+        pools.validate(options.female_given_names)
+        pools.validate(options.surnames)
 
         def male_given_names():
-            return rng.choice(_male)
+            return pools.choice(options.male_given_names, rng)
 
         def female_given_names():
-            return rng.choice(_female)
+            return pools.choice(options.female_given_names, rng)
 
         def family_names():
-            return rng.choice(_surnames)
+            return pools.choice(options.surnames, rng)
 
-    with options.towns.open() as f:
-        if options.towns.suffix == ".csv":
-            rows = list(csv.DictReader(f))
-            _towns = [r["town"] for r in rows]
-            _pops = list(itertools.accumulate(int(r["pop"]) for r in rows))
-        else:
-            _towns, _pops = f.read().splitlines(), None
+    pools.validate(options.towns)
 
     def towns():
-        return rng.choices(_towns, cum_weights=_pops, k=1)[0]
+        return pools.choice(options.towns, rng)
 
     with options.professions.open() as f:
         professions = {k: Profession.from_dict(v) for k, v in json.load(f).items()}
@@ -112,4 +108,5 @@ def load_data(options: Namespace, rng: Rng) -> Data:
         distinguishing=distinguishing,
         education=education,
         employer=employer,
+        pools=pools,
     )
