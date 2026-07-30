@@ -42,7 +42,8 @@ see `CLAUDE.md` if you're changing them.
 
 ## Data sources
 
-Most values here were originally hand-authored. `towns/us.txt` also includes each state's top 10
-most populous towns (city-proper population, where available) not already present, sourced from
-the [SimpleMaps US Cities database](https://simplemaps.com/data/us-cities) (Basic/free license,
-which requires this attribution link).
+Most values here were originally hand-authored. `towns/us.csv` is weighted by real population
+(city-proper, where available), so bigger cities come up more often, matching `towns/uk.csv` —
+sourced from the [SimpleMaps US Cities database](https://simplemaps.com/data/us-cities)
+(Basic/free license, which requires this attribution link). Towns without a population match in
+that database keep a small nominal weight rather than being dropped.
