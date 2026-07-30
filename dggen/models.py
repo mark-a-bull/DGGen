@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from dggen.pools import Pools
+
 
 @dataclass
 class ProfessionSkills:
@@ -214,27 +216,29 @@ class EducationProfession:
 @dataclass
 class EducationData:
     tier_defaults: dict[str, EducationTier]
-    institutions: dict[str, list[str]]
     professions: dict[str, EducationProfession]
-    # Field names that take a "B.S./M.S." (rather than "B.A./M.A.") degree, e.g. "Computer
-    # Science". Anything not listed defaults to "B.A./M.A.".
-    science_fields: list[str] = field(default_factory=list)
+    # Id of the pool (in data/pools/) listing field names that take a "B.S./M.S." (rather than
+    # "B.A./M.A.") degree, e.g. "Computer Science". Anything not in that pool defaults to
+    # "B.A./M.A.". Institution and field-name value lists themselves live in data/pools/, not
+    # here - this dataclass only holds pool *ids* (resolved against Data.pools at generation
+    # time), not the values.
+    science_fields_pool: str = "fields/science"
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> EducationData:
         return cls(
             tier_defaults={k: EducationTier.from_dict(v) for k, v in d["tier_defaults"].items()},
-            institutions=d["institutions"],
             professions={k: EducationProfession.from_dict(v) for k, v in d["professions"].items()},
-            science_fields=d.get("science_fields", []),
+            science_fields_pool=d.get("science_fields_pool", "fields/science"),
         )
 
 
 @dataclass
 class EmployerOption:
-    """One weighted way to fill in a profession's employer: a name drawn from a shared `pool`, a
-    `{city}` `template` resolved against the character's hometown, or a fixed `literal`. Exactly
-    one of the three should be set; an option with none of them resolves to a blank employer."""
+    """One weighted way to fill in a profession's employer: a name drawn from a shared `pool`
+    (an id resolved against `Data.pools`, e.g. "employers/federal-law"), a `{city}` `template`
+    resolved against the character's hometown, or a fixed `literal`. Exactly one of the three
+    should be set; an option with none of them resolves to a blank employer."""
 
     weight: int = 1
     pool: str | None = None
@@ -262,13 +266,11 @@ class EmployerProfession:
 
 @dataclass
 class EmployerData:
-    pools: dict[str, list[str]]
     professions: dict[str, EmployerProfession]
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> EmployerData:
         return cls(
-            pools=d["pools"],
             professions={k: EmployerProfession.from_dict(v) for k, v in d["professions"].items()},
         )
 
@@ -288,3 +290,4 @@ class Data:
     distinguishing: dict[tuple[str, int], list[str]]
     education: EducationData
     employer: EmployerData
+    pools: Pools

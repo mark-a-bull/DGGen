@@ -6,8 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 DGGen generates pre-made character sheets (as PDFs) for the Delta Green pen-and-paper RPG, following the character
 creation rules from *Delta Green: Need to Know* and the *Agent's Handbook*. The logic lives in the `dggen/` package;
-`data/` holds the JSON/text/CSV inputs plus font/image assets; `tests/` holds the pytest suite. `generator.py` is a
-thin backwards-compatibility shim that just calls `dggen.cli.main`.
+`data/` holds the structured JSON/CSV config plus font/image assets, `data/pools/` holds flat value lists (see
+below), and `tests/` holds the pytest suite. `generator.py` is a thin backwards-compatibility shim that just calls
+`dggen.cli.main`.
 
 ## Setup and running
 
@@ -41,10 +42,14 @@ rendered pixels.
 
 `tests/test_golden.py` compares the serialized `d`/`e` for every profession × seed × veterancy against a captured
 snapshot (`tests/golden/characters.json`) — the safety net for generation/serialization changes. If you *intend* to
-change output, regenerate it deterministically (build characters with a seeded `Rng`, dump `d`/`e` to that JSON) and
-eyeball the diff. Because the snapshot is captured in one process and checked in another, it also guards
-cross-process reproducibility — beware anything whose iteration order varies by run (a bare `set()` of skill names
-was one such bug).
+change output, regenerate it deterministically (build characters with a seeded `Rng`, dump `d`/`e` to that JSON),
+eyeball a sample of the diff by hand (not just that it changed, but that the new values are sensible), and lock it
+in. Because the snapshot is captured in one process and checked in another, it also guards cross-process
+reproducibility — beware anything whose iteration order varies by run (a bare `set()` of skill names was one such
+bug). Also beware `random.Random.choice()` vs `.choices()`: they consume the RNG differently and return different
+results for an identical seed even when picking from the same list uniformly, so swapping one for the other is a
+golden-changing move in its own right, not a no-op refactor (this is why `Pools.choice()` — see below — standardises
+on `.choices()` everywhere, rather than "no observable behavior change").
 
 ### Verifying PDF output visually
 
@@ -66,11 +71,22 @@ y down. When cropping to calibrate a field with `fitz.Rect`, convert with `fitz_
 Four layers, communicating across narrow seams. The pipeline: `cli.get_options` → `data.load_data` → for each
 profession, for each character `Character.generate(...)` → `pdf.SheetWriter` draws it.
 
-- **Data** (`models.py`, `data.py`): `@dataclass` models with `from_dict` classmethods, loaded by
+- **Data** (`models.py`, `data.py`, `pools.py`): `@dataclass` models with `from_dict` classmethods, loaded by
   `load_data(options, rng)` into a `Data` object. `find_profession` resolves `-t/--type` by data key or display
   label (case-insensitive) and raises `ProfessionNotFound` (the CLI turns that into exit code 2 — library code
   raises, only the CLI exits). `from __future__ import annotations` in `models.py` is load-bearing: several
   `from_dict` methods return-annotate their own class, which would `NameError` under eager annotation evaluation.
+
+  **Value pools** (`pools.py`, `data/pools/`): every flat/weighted value list DGGen draws from at random — given
+  names, surnames, towns, employer names, institution names, which fields count as "science" for degree phrasing —
+  lives under `data/pools/` as one `.txt` (flat list) or `.csv` (optional weight column) file per category, auto-
+  discovered by `Pools` at `load_data()` time. A pool's id is its path under `data/pools/` minus the extension (e.g.
+  `employers/federal-law`). Structured config (`education.json`, `employers.json`, and the `--male-given-names`/
+  `--female-given-names`/`--surnames`/`--towns` CLI flags) reference pool ids as plain strings rather than embedding
+  the lists inline — this is deliberate: it's the boundary between "just add a line to a text file" (no code-shape
+  knowledge needed, `data/pools/README.md` is the whole contract) and "understand the wiring" (which profession
+  draws from which pool, with what weights). `Pools.choice()`/`.values()` also accept an arbitrary file path instead
+  of a registered id, so `--towns /my/custom-towns.csv` still works for a list that isn't checked into the repo.
 
 - **Domain/rules** (`character.py`, `rules/`, `constants.py`, `equipped.py`): `Character` is the aggregate — typed
   generation state (`stats`, `skills`, `bonds`, derived attributes, demographics, `town`, `weapons`, …). It knows
@@ -90,20 +106,24 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
   Unknown labels fall back to each file's `_default` entry.
 
   `rules/education.py`: degree phrasing (`B.S.` vs `B.A.`, `M.S.` vs `M.A.`) is chosen deterministically from the
-  field name via `EducationData.science_fields`, not by a second RNG draw — this was a real bug (`M.A. Computer
-  Science`) caught by hand-inspecting output before locking in the golden snapshot; if you add a new field to
-  `education.json`, add it to `science_fields` too if it should take a `B.S./M.S.` degree. A tier is only eligible
-  if the character is old enough (`tier.grad_age <= age`); characters younger than every eligible tier's
+  field name via the pool at `EducationData.science_fields_pool` (default `fields/science`), not by a second RNG
+  draw — this was a real bug (`M.A. Computer Science`) caught by hand-inspecting output before locking in the golden
+  snapshot; if you add a new field to `education.json`, add it to `data/pools/fields/science.txt` too if it should
+  take a `B.S./M.S.` degree. Institution names come from `char.data.pools.choice(pool_id, char.rng)`, where
+  `pool_id` is `tier.institution_pool` (e.g. `institutions/university`) unless the profession's
+  `institution_pool_overrides` swaps in something more specific for that tier (e.g. a firefighter's `academy` tier
+  overrides to `institutions/fire-academy` rather than the generic `institutions/military-basic`). A tier is only
+  eligible if the character is old enough (`tier.grad_age <= age`); characters younger than every eligible tier's
   `grad_age` simply get no bio rather than an error.
 
   `rules/employer.py`: only fills `char.employer` if it's still blank after demographics — i.e. neither
   `--employer` nor the profession's own `employer`/`division` (hardcoded in variant files like
   `professions-fbi.json`, e.g. `"FBI, CID"`) provided one, so those must never be clobbered. Each profession in
-  `employers.json` maps to a weighted list of options, each either a `pool` (named list, e.g. real federal
-  agencies), a `template` with `{city}` (resolved against `char.town`, e.g. `"{city} Police Department"`), or a
-  fixed `literal` (e.g. `"U.S. Navy"`). `char.town` is the raw town string set in `generate_demographics`
-  (`char.nationality` is `f"({nationality}) " + char.town`, not the other way around — read `char.town`, not a
-  parsed-back `char.nationality`, if you need just the city).
+  `employers.json` maps to a weighted list of options, each either a `pool` (a pool id, e.g.
+  `employers/federal-law`, resolved via `char.data.pools.choice(...)`), a `template` with `{city}` (resolved against
+  `char.town`, e.g. `"{city} Police Department"`), or a fixed `literal` (e.g. `"U.S. Navy"`). `char.town` is the raw
+  town string set in `generate_demographics` (`char.nationality` is `f"({nationality}) " + char.town`, not the
+  other way around — read `char.town`, not a parsed-back `char.nationality`, if you need just the city).
 
 - **Serialization** (`serialize.py`): `to_front_fields`/`to_back_fields` turn a `Character`'s structured state into
   the `d` (front) and `e` (back/equipment) field dicts keyed by sheet field name — the *only* contract with the PDF
@@ -144,4 +164,7 @@ Adding a profession set means adding a JSON file, not touching code.
 - `--seed N` — reproducible output (same seed + options ⇒ identical characters).
 - `--veterancy` / `--no-damaged` / `-a`/`-A` — veteran rules (skill boosts, stat losses, Damaged Veteran effects,
   AH p.38).
+- `--male-given-names`/`--female-given-names`/`--surnames`/`--towns` take a pool id (e.g. `towns/uk` for the bundled
+  UK list) or a path to your own file; `--distinguishing-features`/`--professions`/`--equipment`/`--education-data`/
+  `--employer-data` remain plain file paths (structured config, not pools).
 - Full reference: `dggen -h` and the "Customising" section of README.md.

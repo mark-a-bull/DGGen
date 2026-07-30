@@ -13,6 +13,7 @@ from dggen import __version__, config
 from dggen.character import Character
 from dggen.data import ProfessionNotFound, find_profession, load_data
 from dggen.pdf import SheetWriter
+from dggen.pools import UnknownPool
 from dggen.rng import Rng
 from dggen.logging_setup import init_logger
 from dggen.text import generate_label, parse_date
@@ -153,30 +154,30 @@ def get_options(argv: list[str] | None = None) -> argparse.Namespace:
     data.add_argument(
         "--male-given-names",
         action="store",
-        type=Path,
         default=config.DEFAULT_MALE_NAMES,
-        help="Data file for male given names - defaults to %(default)s",
+        help="Pool of male given names - a data/pools/ id (see data/pools/README.md), or a path "
+        "to your own file. Defaults to %(default)s",
     )
     data.add_argument(
         "--female-given-names",
         action="store",
-        type=Path,
         default=config.DEFAULT_FEMALE_NAMES,
-        help="Data file for female given names - defaults to %(default)s",
+        help="Pool of female given names - a data/pools/ id, or a path to your own file. "
+        "Defaults to %(default)s",
     )
     data.add_argument(
         "--surnames",
         action="store",
-        type=Path,
         default=config.DEFAULT_SURNAMES,
-        help="Data file for family names - defaults to %(default)s",
+        help="Pool of family names - a data/pools/ id, or a path to your own file. Defaults to "
+        "%(default)s",
     )
     data.add_argument(
         "--towns",
         action="store",
-        type=Path,
         default=config.DEFAULT_TOWNS,
-        help="Data file for towns - defaults to %(default)s",
+        help="Pool of towns - a data/pools/ id, or a path to your own file. Use 'towns/uk' for "
+        "the bundled UK town list. Defaults to %(default)s",
     )
     data.add_argument(
         "--equipment",
@@ -261,15 +262,15 @@ def main(argv: list[str] | None = None) -> int:
     logger.debug(options)
 
     rng = Rng(options.seed)
-    data = load_data(options, rng)
 
     try:
+        data = load_data(options, rng)
         professions = (
             [find_profession(data.professions, options.type)]
             if options.type
             else list(data.professions.values())
         )
-    except ProfessionNotFound as exc:
+    except (ProfessionNotFound, UnknownPool) as exc:
         logger.error("%s", exc)
         return 2
 

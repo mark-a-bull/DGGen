@@ -28,7 +28,7 @@ def generate_employer(char: Character, employer_data: EmployerData) -> None:
     if option.literal is not None:
         char.employer = option.literal
     elif option.pool is not None:
-        char.employer = char.rng.choice(employer_data.pools[option.pool])
+        char.employer = char.data.pools.choice(option.pool, char.rng)
     elif option.template is not None:
         city = char.town.split(",")[0].strip()
         char.employer = option.template.format(city=city)

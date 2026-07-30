@@ -101,6 +101,19 @@ dggen -t "Federal Agent" -c 1 --name "SMITH, John" --sex male --birthdate "1985-
   --employer "FBI" --education "B.S. Criminal Justice, University of Maryland." -o "out/John Smith.pdf"
 ```
 
+### Adding names, towns, employers, schools, etc.
+
+Every plain list of values DGGen picks from at random — given names, surnames, towns, employer names, school/academy
+names — lives under [`data/pools/`](data/pools/). **Adding a value never requires touching any code or JSON
+structure**: open the relevant `.txt` file (e.g. [`data/pools/employers/fictional-companies.txt`](data/pools/employers/fictional-companies.txt)
+or [`data/pools/institutions/university.txt`](data/pools/institutions/university.txt)) and add a line. See
+[`data/pools/README.md`](data/pools/README.md) for the full (short) explanation, including how to drop in a whole
+new list.
+
+`--male-given-names`, `--female-given-names`, `--surnames`, and `--towns` each take either one of these pool ids
+(e.g. `--towns towns/uk` for the bundled UK town list) or a path to your own file elsewhere, if you'd rather not
+add it to the repo.
+
 ### Veterans
 
 If desired, veteran Delta Green agent characters can be generated with the `--veterancy` flag. These characters will
@@ -276,7 +289,7 @@ Generate a group of PISCES agents.
 Requires: out-dir
 
 ```sh
-./generator.py --professions data/professions-uk.json -n "U.K." --towns data/towns-uk.csv --names en_GB --oconus -o "out/PISCES.pdf" -T "Suspected PISCES agents"
+./generator.py --professions data/professions-uk.json -n "U.K." --towns towns/uk --names en_GB --oconus -o "out/PISCES.pdf" -T "Suspected PISCES agents"
 ```
 
 ### generate-all

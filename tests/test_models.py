@@ -65,35 +65,31 @@ def test_education_data_from_dict():
                 "bachelors": {
                     "grad_age": 22,
                     "templates": {"science": "B.S. {field}, {institution} {year}"},
-                    "institution_pool": "university",
+                    "institution_pool": "institutions/university",
                 },
             },
-            "institutions": {"university": ["Test University"]},
             "professions": {
                 "_default": {"fields": ["Liberal Arts"], "tiers": {"bachelors": 1}},
             },
-            "science_fields": ["Computer Science"],
+            "science_fields_pool": "fields/science",
         },
     )
     assert education.tier_defaults["bachelors"].grad_age == 22
-    assert education.institutions["university"] == ["Test University"]
+    assert education.tier_defaults["bachelors"].institution_pool == "institutions/university"
     assert education.professions["_default"].fields == ["Liberal Arts"]
-    assert education.science_fields == ["Computer Science"]
+    assert education.science_fields_pool == "fields/science"
 
 
-def test_education_data_defaults_science_fields_to_empty():
-    education = EducationData.from_dict(
-        {"tier_defaults": {}, "institutions": {}, "professions": {}},
-    )
-    assert education.science_fields == []
+def test_education_data_defaults_science_fields_pool():
+    education = EducationData.from_dict({"tier_defaults": {}, "professions": {}})
+    assert education.science_fields_pool == "fields/science"
 
 
 def test_employer_data_from_dict():
     employer = EmployerData.from_dict(
         {
-            "pools": {"federal_law": ["FBI", "DEA"]},
             "professions": {
-                "federal agent": {"options": [{"pool": "federal_law"}]},
+                "federal agent": {"options": [{"pool": "employers/federal-law"}]},
                 "police officer": {
                     "options": [{"weight": 3, "template": "{city} Police Department"}],
                 },
@@ -101,9 +97,8 @@ def test_employer_data_from_dict():
             },
         },
     )
-    assert employer.pools["federal_law"] == ["FBI", "DEA"]
     option = employer.professions["federal agent"].options[0]
-    assert option.pool == "federal_law"
+    assert option.pool == "employers/federal-law"
     assert option.weight == 1  # default when omitted
     template_option = employer.professions["police officer"].options[0]
     assert template_option.weight == 3

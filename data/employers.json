@@ -1,96 +1,46 @@
 {
-  "pools": {
-    "federal_law": [
-      "FBI", "DEA", "ATF", "U.S. Secret Service", "U.S. Marshals Service"
-    ],
-    "intelligence": ["CIA", "NSA", "DIA"],
-    "hospitals": [
-      "Johns Hopkins Hospital", "Massachusetts General Hospital", "Cleveland Clinic",
-      "Mayo Clinic", "Cedars-Sinai Medical Center"
-    ],
-    "universities": [
-      "Harvard University", "University of Chicago", "Stanford University",
-      "University of Michigan", "Georgetown University"
-    ],
-    "museums": [
-      "Smithsonian Institution", "Field Museum", "American Museum of Natural History",
-      "Peabody Museum"
-    ],
-    "big_city_police": [
-      "New York City Police Department", "Los Angeles Police Department",
-      "Chicago Police Department", "Miami-Dade Police Department"
-    ],
-    "big_city_fire": [
-      "Fire Department of New York", "Los Angeles Fire Department", "Chicago Fire Department"
-    ],
-    "airlines": [
-      "Continental Skyways", "Atlas Air Cargo", "Meridian Airlines", "Coastal Charter Aviation"
-    ],
-    "fictional_companies": [
-      "Alderwood Technologies", "Praxis Dynamics", "Northgate Solutions", "Vantable Systems",
-      "Cormorant Analytics", "Ridgeline Defense", "Halcyon Industries", "Ferro-Tech Industries",
-      "Meridian Robotics", "Blackwood Consulting Group"
-    ],
-    "fictional_research": [
-      "Ashcombe Research Institute", "Voss Applied Sciences", "Greymoor Laboratories",
-      "Thornfield Institute", "Baxter-Hale Research Group", "Caldwell Biotech"
-    ],
-    "fictional_news": [
-      "Continental Press Bureau", "Harborview News Network", "The Meridian Herald",
-      "Statecraft Media Group", "Ledger & Times Wire Service"
-    ],
-    "fictional_law_firms": [
-      "Ashworth & Kline LLP", "Merritt, Holloway & Voss", "Castellan Legal Group",
-      "Beaumont & Cross Attorneys", "Fairbank Law Partners"
-    ],
-    "fictional_crime": [
-      "Vantage Import-Export Co.", "Redline Salvage & Trucking", "Silvergate Holdings",
-      "Corbin Bros. Construction", "Union Docks Warehousing"
-    ]
-  },
-
   "professions": {
     "anthropologist": {
       "options": [
-        {"weight": 2, "pool": "universities"},
-        {"weight": 2, "pool": "museums"}
+        {"weight": 2, "pool": "employers/universities"},
+        {"weight": 2, "pool": "employers/museums"}
       ]
     },
-    "business executive": { "options": [{"pool": "fictional_companies"}] },
-    "computer scientist": { "options": [{"pool": "fictional_companies"}] },
+    "business executive": { "options": [{"pool": "employers/fictional-companies"}] },
+    "computer scientist": { "options": [{"pool": "employers/fictional-companies"}] },
     "counter terrorism officer": {
       "options": [
         {"weight": 2, "template": "{city} Police Department"},
-        {"weight": 1, "pool": "big_city_police"}
+        {"weight": 1, "pool": "employers/big-city-police"}
       ]
     },
-    "criminal": { "options": [{"pool": "fictional_crime"}] },
+    "criminal": { "options": [{"pool": "employers/fictional-crime"}] },
     "division political action group": { "options": [{"literal": "State Security Directorate"}] },
-    "engineer": { "options": [{"pool": "fictional_companies"}] },
-    "federal agent": { "options": [{"pool": "federal_law"}] },
-    "field intelligence officer": { "options": [{"pool": "intelligence"}] },
+    "engineer": { "options": [{"pool": "employers/fictional-companies"}] },
+    "federal agent": { "options": [{"pool": "employers/federal-law"}] },
+    "field intelligence officer": { "options": [{"pool": "employers/intelligence"}] },
     "firefighter": {
       "options": [
         {"weight": 3, "template": "{city} Fire Department"},
-        {"weight": 1, "pool": "big_city_fire"}
+        {"weight": 1, "pool": "employers/big-city-fire"}
       ]
     },
     "foreign service officer": { "options": [{"literal": "U.S. Department of State"}] },
     "historian": {
       "options": [
-        {"weight": 2, "pool": "universities"},
-        {"weight": 1, "pool": "museums"}
+        {"weight": 2, "pool": "employers/universities"},
+        {"weight": 1, "pool": "employers/museums"}
       ]
     },
     "hostage rescue team": { "options": [{"literal": "FBI"}] },
-    "intelligence analyst": { "options": [{"pool": "intelligence"}] },
-    "intelligence case officer": { "options": [{"pool": "intelligence"}] },
-    "lawyer": { "options": [{"pool": "fictional_law_firms"}] },
+    "intelligence analyst": { "options": [{"pool": "employers/intelligence"}] },
+    "intelligence case officer": { "options": [{"pool": "employers/intelligence"}] },
+    "lawyer": { "options": [{"pool": "employers/fictional-law-firms"}] },
     "marine": { "options": [{"literal": "U.S. Marine Corps"}] },
-    "media specialist": { "options": [{"pool": "fictional_news"}] },
+    "media specialist": { "options": [{"pool": "employers/fictional-news"}] },
     "nurse": {
       "options": [
-        {"weight": 2, "pool": "hospitals"},
+        {"weight": 2, "pool": "employers/hospitals"},
         {"weight": 1, "template": "{city} General Hospital"}
       ]
     },
@@ -102,25 +52,25 @@
     },
     "physician": {
       "options": [
-        {"weight": 2, "pool": "hospitals"},
+        {"weight": 2, "pool": "employers/hospitals"},
         {"weight": 1, "template": "{city} General Hospital"}
       ]
     },
     "pilot": {
       "options": [
-        {"weight": 2, "pool": "airlines"},
+        {"weight": 2, "pool": "employers/airlines"},
         {"weight": 1, "literal": "U.S. Air Force"}
       ]
     },
     "police officer": {
       "options": [
         {"weight": 3, "template": "{city} Police Department"},
-        {"weight": 1, "pool": "big_city_police"}
+        {"weight": 1, "pool": "employers/big-city-police"}
       ]
     },
-    "program manager": { "options": [{"pool": "fictional_companies"}] },
+    "program manager": { "options": [{"pool": "employers/fictional-companies"}] },
     "sailor": { "options": [{"literal": "U.S. Navy"}] },
-    "scientist": { "options": [{"pool": "fictional_research"}] },
+    "scientist": { "options": [{"pool": "employers/fictional-research"}] },
     "socom": { "options": [{"literal": "U.S. Special Operations Command"}] },
     "soldier": { "options": [{"literal": "U.S. Army"}] },
     "special forces operator": { "options": [{"literal": "U.S. Army Special Forces"}] },
@@ -128,10 +78,10 @@
     "swat": {
       "options": [
         {"weight": 2, "template": "{city} Police Department"},
-        {"weight": 1, "pool": "big_city_police"}
+        {"weight": 1, "pool": "employers/big-city-police"}
       ]
     },
-    "technical officer": { "options": [{"pool": "intelligence"}] },
+    "technical officer": { "options": [{"pool": "employers/intelligence"}] },
     "_default": { "options": [{"literal": ""}] }
   }
 }
