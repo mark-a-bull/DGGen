@@ -21,7 +21,7 @@ GOLDEN = json.loads((Path(__file__).parent / "golden" / "characters.json").read_
 
 
 def _build(prof_key: str, seed: int, veterancy: bool):
-    options = get_options(["--seed", str(seed)])
+    options = get_options(["--seed", str(seed), "--pdf"])
     rng = Rng(seed)
     data = load_data(options, rng)
     prof = find_profession(data.professions, prof_key)

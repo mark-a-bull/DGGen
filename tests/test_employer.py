@@ -24,7 +24,9 @@ class TestGenerateEmployer:
         from dggen.cli import get_options
         from dggen.rng import Rng
 
-        options = get_options(["--seed", "0", "--professions", "data/professions-fbi.json"])
+        options = get_options(
+            ["--seed", "0", "--professions", "data/professions-fbi.json", "--pdf"],
+        )
         fbi_data = load_data(options, Rng(0))
         prof = find_profession(fbi_data.professions, "cid")
         char = Character.generate(data=fbi_data, rng=Rng(1), sex="male", profession=prof)

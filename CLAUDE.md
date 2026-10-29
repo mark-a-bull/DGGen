@@ -153,6 +153,12 @@ Adding a profession set means adding a JSON file, not touching code.
 
 ## Key CLI flags
 
+- **Default output is plain text, not a PDF.** Every generated character is printed as a readable summary
+  (`dggen.text.format_details`) to stdout. Pass `--pdf` to also write a PDF via `-o/--output`, which restores the
+  historical behavior: without `-t`, every profession's full roster (`number_to_generate` characters each) is
+  generated. Without `--pdf`, `-t/--type` is required (argparse errors otherwise) and `-c/--count` defaults to `1`
+  instead of the profession's roster size — this mode is for previewing one character's stats/skills/equipment
+  quickly, not for bulk PDF rosters.
 - `-t/--type` — profession key or display label (case-insensitive); unknown values list every valid key/label pair.
 - Single specific character: `-t` + `-c 1` + any of `--name`, `--sex`, `--birth-year`, `--birthdate` (precedence over
   `--birth-year`; also sets the exact birthday shown), `--employer`, `--education`.

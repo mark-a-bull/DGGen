@@ -9,10 +9,13 @@ Some pregenerated sets of characters can be found [here](https://drive.google.co
 DGGen is a program written in Python to generate characters for the pen-and-paper roleplaying game Delta Green from Arc
 Dream Publishing. It follows the character creations rules included in Delta Green:Need to Know and the Delta Green
 Agent's Handbook. The [ReportLab](https://www.reportlab.com/dev/opensource/) and 
-[Faker](https://github.com/joke2k/faker) libraries are required. Characters are created one-per-page (if unequipped) 
-or two-per-page into a PDF.  (The second-page of the character sheet is included as the final page in the PDF if 
-characters are generated unequipped.) By default, characters of alternating genders are created in each of the 
-following professions:
+[Faker](https://github.com/joke2k/faker) libraries are required.
+
+By default, DGGen prints a readable text summary of each generated character (stats, skills, bonds, equipment, etc.)
+straight to your terminal — nothing is written to disk. Add the `--pdf` flag to also render a PDF character sheet
+(one-per-page if unequipped, two-per-page otherwise, with the second page included as the final page in the PDF for
+unequipped characters). With `--pdf`, characters of alternating genders are created in each of the following
+professions by default:
 
 * Anthropologist
 * Business Executive
@@ -40,6 +43,29 @@ following professions:
 * Special Operator
 
 ## Customising
+
+### Text output vs. PDF
+
+Running `dggen -t "Federal Agent"` with no other flags prints a text summary of that character to stdout - stats,
+skills, bonds, equipment, etc. - and writes nothing to disk:
+
+```sh
+dggen -t "Federal Agent"
+```
+
+Add `--pdf` to also write a PDF (the text summary still prints too), using `-o`/`--output` for the path:
+
+```sh
+dggen -t "Federal Agent" --pdf -o "out/Federal Agent.pdf"
+```
+
+Two defaults differ between the two modes:
+
+* Without `--pdf`, `-t`/`--type` is required - omitting it would otherwise print every profession's full roster as a
+  wall of text, which is rarely what you want from a quick preview. Pass `--pdf` if you do want that (e.g. to build
+  a PDF covering every profession at once).
+* Without `--pdf`, `-c`/`--count` defaults to `1` (a quick preview); with `--pdf`, it defaults to each profession's
+  own `number_to_generate` (a full roster), matching the historical PDF-only behavior.
 
 ### Professions
 
@@ -98,7 +124,8 @@ three are equivalent):
 
 ```sh
 dggen -t "Federal Agent" -c 1 --name "SMITH, John" --sex male --birthdate "1985-06-12" \
-  --employer "FBI" --education "B.S. Criminal Justice, University of Maryland." -o "out/John Smith.pdf"
+  --employer "FBI" --education "B.S. Criminal Justice, University of Maryland." \
+  --pdf -o "out/John Smith.pdf"
 ```
 
 ### Adding names, towns, employers, schools, etc.
@@ -189,7 +216,7 @@ Generate standard characters.
 Requires: out-dir
 
 ```sh
-./generator.py --output "out/1001 DG Characters.pdf"
+./generator.py --pdf --output "out/1001 DG Characters.pdf"
 ```
 
 ### generate-dg-veterans
@@ -199,7 +226,7 @@ Generate cells D-Z of Delta Green veterans.
 Requires: out-dir
 
 ```sh
-for cell in D E F G H I J K L M N O P Q R S T U V W X Y Z ; do ./generator.py --type agent --count 3 --output "out/dg-veterans/$cell Cell.pdf" -T "$cell Cell" --veterancy ; done
+for cell in D E F G H I J K L M N O P Q R S T U V W X Y Z ; do ./generator.py --type agent --count 3 --pdf --output "out/dg-veterans/$cell Cell.pdf" -T "$cell Cell" --veterancy ; done
 ```
 
 ### generate-soldiers
@@ -209,7 +236,7 @@ Generate a group of Green Berets.
 Requires: out-dir
 
 ```sh
-./generator.py --type soldier --label "Green Beret" --employer "United States Army" --count 24 --output "out/Bravo Company.pdf" -T "Bravo Company, Green Berets"
+./generator.py --type soldier --label "Green Beret" --employer "United States Army" --count 24 --pdf --output "out/Bravo Company.pdf" -T "Bravo Company, Green Berets"
 ```
 
 ### generate-police
@@ -219,7 +246,7 @@ Generate a group of Police.
 Requires: out-dir
 
 ```sh
-./generator.py --type police --employer "NYPD" --output "out/The 17th Precinct.pdf" -T "17th Precinct, NYPD"
+./generator.py --type police --employer "NYPD" --pdf --output "out/The 17th Precinct.pdf" -T "17th Precinct, NYPD"
 ```
 
 ### generate-criminals
@@ -229,7 +256,7 @@ Generate a group of criminals.
 Requires: out-dir
 
 ```sh
-./generator.py --type criminal --label "Thug" --employer "Fat Tony" --count 12 --output "out/Tony's Enforcers.pdf" -T "Tony's Enforcers"
+./generator.py --type criminal --label "Thug" --employer "Fat Tony" --count 12 --pdf --output "out/Tony's Enforcers.pdf" -T "Tony's Enforcers"
 ```
 
 ### generate-fbi
@@ -239,7 +266,7 @@ Generate a group of FBI Agents.
 Requires: out-dir
 
 ```sh
-./generator.py --professions data/professions-fbi.json -o "out/FBI Field Office.pdf" -T "FBI Field Office"
+./generator.py --professions data/professions-fbi.json --pdf -o "out/FBI Field Office.pdf" -T "FBI Field Office"
 ```
 
 ### generate-cia
@@ -249,7 +276,7 @@ Generate a group of CIA Agents.
 Requires: out-dir
 
 ```sh
-./generator.py --professions data/professions-cia.json -o "out/CIA London Station.pdf" -T "London Station, CIA"
+./generator.py --professions data/professions-cia.json --pdf -o "out/CIA London Station.pdf" -T "London Station, CIA"
 ```
 
 ### generate-socom
@@ -259,7 +286,7 @@ Generate a group of special forces soldiers.
 Requires: out-dir
 
 ```sh
-./generator.py --professions data/professions-socom.json -o "out/SOCOM Camp Echo.pdf" -T "Camp Echo, SOCOM"
+./generator.py --professions data/professions-socom.json --pdf -o "out/SOCOM Camp Echo.pdf" -T "Camp Echo, SOCOM"
 ```
 
 Generate a group of DEA Agents.
@@ -269,7 +296,7 @@ Requires: out-dir
 ### generate-dea
 
 ```sh
-./generator.py --professions data/professions-dea.json -o "out/DEA Field Office.pdf" -T "DEA Field Office"
+./generator.py --professions data/professions-dea.json --pdf -o "out/DEA Field Office.pdf" -T "DEA Field Office"
 ```
 
 ### generate-seals
@@ -279,7 +306,7 @@ Generate a group of Navy SEALS.
 Requires: out-dir
 
 ```sh
-./generator.py --professions data/professions-socom.json --type seal --count 12 -o "out/Operation ROOKHAVEN.pdf" -T "Operation ROOKHAVEN, Navy SEALs"
+./generator.py --professions data/professions-socom.json --type seal --count 12 --pdf -o "out/Operation ROOKHAVEN.pdf" -T "Operation ROOKHAVEN, Navy SEALs"
 ```
 
 ### generate-pisces
@@ -289,7 +316,7 @@ Generate a group of PISCES agents.
 Requires: out-dir
 
 ```sh
-./generator.py --professions data/professions-uk.json -n "U.K." --towns towns/uk --names en_GB --oconus -o "out/PISCES.pdf" -T "Suspected PISCES agents"
+./generator.py --professions data/professions-uk.json -n "U.K." --towns towns/uk --names en_GB --oconus --pdf -o "out/PISCES.pdf" -T "Suspected PISCES agents"
 ```
 
 ### generate-all

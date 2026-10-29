@@ -16,7 +16,7 @@ from dggen.pdf import SheetWriter
 from dggen.pools import UnknownPool
 from dggen.rng import Rng
 from dggen.logging_setup import init_logger
-from dggen.text import generate_label, parse_date
+from dggen.text import format_details, generate_label, parse_date
 
 logger = logging.getLogger("dggen")
 
@@ -40,12 +40,20 @@ def get_options(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("-V", "--version", action="version", version=__version__)
     doc.add_argument(
+        "--pdf",
+        action="store_true",
+        default=False,
+        help="Write a PDF (path set by -o/--output) in addition to printing character details. "
+        "Without --pdf, -t/--type is required and defaults to generating one character; with "
+        "--pdf, omitting -t generates every profession's full roster as before.",
+    )
+    doc.add_argument(
         "-o",
         "--output",
         action="store",
         type=Path,
         default=Path(f"DeltaGreenPregen-{datetime.now():%Y-%m-%d-%H-%M}.pdf"),
-        help="Output PDF file. Defaults to %(default)s.",
+        help="Output PDF file, only used with --pdf. Defaults to %(default)s.",
     )
     gen.add_argument(
         "-t",
@@ -61,7 +69,8 @@ def get_options(argv: list[str] | None = None) -> argparse.Namespace:
         "--count",
         type=int,
         action="store",
-        help="Generate this many characters of each profession.",
+        help="Generate this many characters of each profession. Defaults to the profession's "
+        "own roster size with --pdf, otherwise 1.",
     )
     gen.add_argument(
         "-e",
@@ -253,7 +262,13 @@ def get_options(argv: list[str] | None = None) -> argparse.Namespace:
         default=False,
     )
 
-    return parser.parse_args(argv)
+    options = parser.parse_args(argv)
+    if not options.pdf and not options.type:
+        parser.error(
+            "-t/--type is required unless --pdf is given (otherwise this would print every "
+            "profession's full roster as text). Pass --pdf to generate full rosters as before.",
+        )
+    return options
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -274,17 +289,21 @@ def main(argv: list[str] | None = None) -> int:
         logger.error("%s", exc)
         return 2
 
+    writer = None
     pages_per_sheet = 2 if options.equip else 1
-    writer = SheetWriter(options.output, pages_per_sheet=pages_per_sheet)
-    writer.add_cover(options.title, options.oconus)
-    if len(professions) > 1:
-        writer.generate_toc(professions, pages_per_sheet)
+    if options.pdf:
+        writer = SheetWriter(options.output, pages_per_sheet=pages_per_sheet)
+        writer.add_cover(options.title, options.oconus)
+        if len(professions) > 1:
+            writer.generate_toc(professions, pages_per_sheet)
 
     for profession in professions:
-        writer.bookmark(generate_label(profession))
+        if writer:
+            writer.bookmark(generate_label(profession))
+        count = options.count or (profession.number_to_generate if options.pdf else 1)
         for sex in islice(
             cycle([options.sex] if options.sex else ["female", "male"]),
-            options.count or profession.number_to_generate,
+            count,
         ):
             character = Character.generate(
                 data=data,
@@ -309,12 +328,17 @@ def main(argv: list[str] | None = None) -> int:
                 character.equip(profession.equipment_kit)
             character.print_footnotes()
 
-            writer.add_page(character.d)
-            if pages_per_sheet >= 2:
-                writer.add_page_2(character.e)
+            print(format_details(character))
+            print()
 
-    writer.save_pdf()
-    logger.info("Wrote %s", options.output)
+            if writer:
+                writer.add_page(character.d)
+                if pages_per_sheet >= 2:
+                    writer.add_page_2(character.e)
+
+    if writer:
+        writer.save_pdf()
+        logger.info("Wrote %s", options.output)
     return 0
 
 

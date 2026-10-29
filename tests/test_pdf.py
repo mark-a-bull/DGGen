@@ -30,6 +30,7 @@ def test_cli_generates_valid_pdf(tmp_path):
             "--sex", "male",
             "--birthdate", "1986-11-24",
             "--seed", "42",
+            "--pdf",
             "-o", str(out),
         ],
     )
@@ -46,7 +47,7 @@ def test_cli_rejects_unknown_profession(tmp_path, caplog):
 def test_cli_multiple_professions_builds_toc(tmp_path):
     """Exercises the >1 profession path, which renders a Table of Contents."""
     out = tmp_path / "roster.pdf"
-    rc = main(["--seed", "1", "-o", str(out)])
+    rc = main(["--seed", "1", "--pdf", "-o", str(out)])
     assert rc == 0
     assert out.read_bytes().startswith(b"%PDF")
 

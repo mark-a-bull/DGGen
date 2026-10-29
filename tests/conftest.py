@@ -12,7 +12,7 @@ from dggen.rng import Rng
 @pytest.fixture
 def data():
     """Real Data loaded from the bundled data files, using a seeded RNG for its providers."""
-    options = get_options(["--seed", "0"])
+    options = get_options(["--seed", "0", "--pdf"])
     return load_data(options, Rng(0))
 
 
@@ -26,7 +26,7 @@ def make_character():
     from dggen.character import Character
 
     def _make(profession="agent", seed=1234, sex="male", **kwargs):
-        options = get_options(["--seed", str(seed)])
+        options = get_options(["--seed", str(seed), "--pdf"])
         rng = Rng(seed)
         loaded = load_data(options, rng)
         prof = find_profession(loaded.professions, profession)

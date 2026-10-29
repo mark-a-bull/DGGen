@@ -7,7 +7,7 @@ from datetime import date
 
 import pytest
 
-from dggen.text import age_on, format_name, parse_date, shrink_to_fit
+from dggen.text import age_on, format_details, format_name, parse_date, shrink_to_fit
 
 
 class TestFormatName:
@@ -76,3 +76,46 @@ class TestShrinkToFit:
         )
         assert text.endswith("…")
         assert self.measure(text, size) <= 18
+
+
+class TestFormatDetails:
+    def test_includes_identity_and_stats(self, make_character):
+        char = make_character(profession="agent", seed=42, sex="female")
+        text = format_details(char)
+        assert char.name in text
+        assert char.profession_label in text
+        assert "Statistics:" in text
+        strength = char.stats["strength"]
+        assert f"  {'Strength':<14} {strength:3d}  (x5 {strength * 5})" in text
+
+    def test_skills_section_lists_every_skill(self, make_character):
+        char = make_character(profession="agent", seed=1)
+        text = format_details(char)
+        assert "Skills:" in text
+        for skill, score in char.skills.items():
+            assert f"{score}%" in text
+
+    def test_bonds_section_present_when_bonds_exist(self, make_character):
+        char = make_character(profession="agent", seed=1)
+        assert char.bonds  # agent has 3 bonds
+        text = format_details(char)
+        assert "Bonds:" in text
+        assert f"Bond 1: {char.bonds[0]}" in text
+
+    def test_equipment_section_only_appears_once_equipped(self, make_character):
+        char = make_character(profession="agent", seed=1)
+        assert "Equipment:" not in format_details(char)
+
+        char.equip(char.profession.equipment_kit)
+        char.print_footnotes()
+        text = format_details(char)
+        assert "Equipment:" in text
+        assert "Weapon:" in text
+
+    def test_employer_and_education_lines_omitted_when_blank(self, make_character):
+        char = make_character(
+            profession="agent", seed=1, auto_employer=False, auto_education=False,
+        )
+        text = format_details(char)
+        assert "Employer:" not in text
+        assert "Education:" not in text
