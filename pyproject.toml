@@ -21,9 +21,17 @@ dev = ["pytest>=8", "pypdf>=4"]
 dggen = "dggen.cli:main"
 
 [tool.setuptools]
-# The generator relies on fonts, images and data files under data/. Ship them with the package
-# so an installed dggen can find its assets via dggen.config.DATA_DIR.
 packages = ["dggen", "dggen.rules"]
+
+# The generator relies on fonts, images and data files under dggen/data/ (found via
+# dggen.config.DATA_DIR). They are not Python packages, so they must be listed as package data
+# or they are silently left out of the wheel.
+[tool.setuptools.package-data]
+dggen = ["data/**/*"]
+
+[tool.setuptools.exclude-package-data]
+# Reference/template PDFs kept in the repo for humans; nothing at runtime reads them.
+dggen = ["data/*.pdf"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

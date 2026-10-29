@@ -35,7 +35,7 @@ class TestGenerateEducation:
         assert char.education
 
     def test_too_young_for_any_tier_leaves_field_blank(self, make_character):
-        # data/education.json's lowest grad_age across all tiers is 18 (highschool). An age below
+        # dggen/data/education.json's lowest grad_age across all tiers is 18 (highschool). An age below
         # that has no eligible tier for any profession.
         char = make_character(profession="Anthropologist", min_age=10, max_age=10)
         assert char.education is None

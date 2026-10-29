@@ -2,10 +2,10 @@
 plausible for the character's profession and age.
 
 Looked up by the profession's display label (lowercased), not its data key, since many different
-profession-set keys across data/professions*.json (e.g. 'agent', 'cid', 'nsb-agent') share the
+profession-set keys across dggen/data/professions*.json (e.g. 'agent', 'cid', 'nsb-agent') share the
 same real-world job and so the same label ('Federal Agent') - mirroring how find_profession()
 already resolves -t/--type by label. Unknown labels fall back to the '_default' entry, so new
-profession sets work without editing data/education.json.
+profession sets work without editing dggen/data/education.json.
 """
 
 from __future__ import annotations

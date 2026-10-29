@@ -1,8 +1,8 @@
-"""Auto-discovered value-list pools: drop a file under data/pools/, reference its id from a
+"""Auto-discovered value-list pools: drop a file under dggen/data/pools/, reference its id from a
 config file (or a CLI flag), done. No code changes needed to add a value or a whole new list.
 
 A pool's id is its path under the pools root, without extension, with forward slashes -
-e.g. `data/pools/employers/federal-law.txt` is `employers/federal-law`. Two formats are
+e.g. `dggen/data/pools/employers/federal-law.txt` is `employers/federal-law`. Two formats are
 understood, chosen by extension:
 
 - `.txt` - one value per line. Blank lines and lines starting with `#` are ignored, so a file can
