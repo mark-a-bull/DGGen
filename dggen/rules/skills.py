@@ -28,6 +28,7 @@ def generate_skills(char: Character) -> None:
         char.profession.skills.possible_count,
     ):
         char.skills[skill] = score
+        char.picked_skills.append(skill)
         logger.debug("%s, set picked professional skill %s to %s", char, skill, score)
 
     for i in range(char.profession.bonds):
@@ -40,7 +41,9 @@ def generate_bonus_skills(char: Character) -> None:
     potential_bonus_skills = [
         s for s in char.profession.skills.bonus if char.rng.randint(1, 100) <= SUGGESTED_BONUS_CHANCE
     ] + char.rng.sample(ALL_BONUS, len(ALL_BONUS))
-    apply_bonuses(char, potential_bonus_skills, 8, 20, 80)
+    # A suggested skill also appears in the shuffled ALL_BONUS tail; keep only its first (the
+    # suggested) slot so it isn't picked, and boosted, twice. dict.fromkeys keeps order.
+    apply_bonuses(char, list(dict.fromkeys(potential_bonus_skills)), 8, 20, 80)
 
 
 def apply_bonuses(

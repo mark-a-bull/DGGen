@@ -95,6 +95,17 @@ class TestFormatDetails:
         for skill, score in char.skills.items():
             assert f"{score}%" in text
 
+    def test_label_entries_are_folded_into_their_skill_not_listed_as_skills(self, make_character):
+        """Profession data stores sub-skill names (craft1label: "Electrician") alongside the
+        score (craft1value: 40) in `skills`; the text view must show one "Craft (Electrician)"
+        line, not a bogus "Craft1Label ... Electrician%" skill."""
+        char = make_character(profession="engineer", seed=3)
+        assert char.skills["craft1label"] == "Electrician"  # guard: fixture really has labels
+        text = format_details(char)
+        assert "Label" not in text
+        assert "Electrician%" not in text
+        assert f"  {'Craft (Electrician)':<26} {char.skills['craft1value']}%" in text
+
     def test_bonds_section_present_when_bonds_exist(self, make_character):
         char = make_character(profession="agent", seed=1)
         assert char.bonds  # agent has 3 bonds

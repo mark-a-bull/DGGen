@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
 from datetime import datetime
@@ -11,7 +12,7 @@ from pathlib import Path
 
 from dggen import __version__, config
 from dggen.character import Character
-from dggen.data import ProfessionNotFound, find_profession, load_data
+from dggen.data import InvalidLocale, ProfessionNotFound, find_profession, load_data
 from dggen.pdf import SheetWriter
 from dggen.pools import UnknownPool
 from dggen.rng import Rng
@@ -19,6 +20,17 @@ from dggen.logging_setup import init_logger
 from dggen.text import format_details, generate_label, parse_date
 
 logger = logging.getLogger("dggen")
+
+
+def _positive_int(value: str) -> int:
+    """argparse type for counts: a whole number of at least 1."""
+    try:
+        number = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"invalid int value: {value!r}") from None
+    if number < 1:
+        raise argparse.ArgumentTypeError(f"must be at least 1, got {number}")
+    return number
 
 
 def get_options(argv: list[str] | None = None) -> argparse.Namespace:
@@ -67,7 +79,7 @@ def get_options(argv: list[str] | None = None) -> argparse.Namespace:
     gen.add_argument(
         "-c",
         "--count",
-        type=int,
+        type=_positive_int,
         action="store",
         help="Generate this many characters of each profession. Defaults to the profession's "
         "own roster size with --pdf, otherwise 1.",
@@ -268,10 +280,24 @@ def get_options(argv: list[str] | None = None) -> argparse.Namespace:
             "-t/--type is required unless --pdf is given (otherwise this would print every "
             "profession's full roster as text). Pass --pdf to generate full rosters as before.",
         )
+    if options.min_age < 0:
+        parser.error(f"-a/--min-age must not be negative, got {options.min_age}")
+    if options.min_age > options.max_age:
+        parser.error(
+            f"-a/--min-age ({options.min_age}) must not exceed -A/--max-age ({options.max_age})",
+        )
+    if options.pdf and not options.output.resolve().parent.is_dir():
+        # Fail now, not after the whole roster has been generated.
+        parser.error(f"-o/--output directory does not exist: {options.output.resolve().parent}")
     return options
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Names from --names locales (or --name) can be non-Latin, and a redirected Windows stdout is
+    # often a legacy codepage that can't encode them. Degrade the console text rather than letting
+    # the print abort the whole run before the PDF is written.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")
     options = get_options(argv)
     init_logger(options.verbosity)
     logger.debug(options)
@@ -285,7 +311,7 @@ def main(argv: list[str] | None = None) -> int:
             if options.type
             else list(data.professions.values())
         )
-    except (ProfessionNotFound, UnknownPool) as exc:
+    except (ProfessionNotFound, UnknownPool, InvalidLocale, OSError, json.JSONDecodeError) as exc:
         logger.error("%s", exc)
         return 2
 
@@ -295,7 +321,7 @@ def main(argv: list[str] | None = None) -> int:
         writer = SheetWriter(options.output, pages_per_sheet=pages_per_sheet)
         writer.add_cover(options.title, options.oconus)
         if len(professions) > 1:
-            writer.generate_toc(professions, pages_per_sheet)
+            writer.generate_toc(professions, pages_per_sheet, options.count)
 
     for profession in professions:
         if writer:

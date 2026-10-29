@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from dggen.constants import STATS
 
@@ -84,6 +84,29 @@ def shrink_to_fit(
     return text, size
 
 
+def _skill_rows(skills: dict[str, Any]) -> list[tuple[str, int]]:
+    """(display name, score) rows, sorted by name.
+
+    `skills` also carries sub-skill names as `<base>label` strings next to their `<base>value`
+    score (e.g. `craft1label: "Electrician"`, `craft1value: 40`) because that is how the sheet
+    stores them. Fold each pair into one "Craft (Electrician)" row instead of listing the label
+    as though it were a skill.
+    """
+    rows = []
+    for key, score in skills.items():
+        if key.endswith("label"):
+            continue
+        if key.endswith("value"):
+            base = key[: -len("value")]
+            name = base.rstrip("0123456789").title()
+            if label := skills.get(f"{base}label"):
+                name += f" ({label})"
+        else:
+            name = key.title()
+        rows.append((name, score))
+    return sorted(rows)
+
+
 def format_details(char: Character) -> str:
     """Render a generated character's structured state as a readable multi-line summary.
 
@@ -125,8 +148,8 @@ def format_details(char: Character) -> str:
 
     lines.append("")
     lines.append("Skills:")
-    for skill in sorted(char.skills):
-        lines.append(f"  {skill.title():<20} {char.skills[skill]}%")
+    for name, score in _skill_rows(char.skills):
+        lines.append(f"  {name:<26} {score}%")
 
     if char.bonds:
         lines.append("")

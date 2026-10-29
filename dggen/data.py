@@ -32,6 +32,10 @@ class ProfessionNotFound(Exception):
         self.requested = requested
 
 
+class InvalidLocale(Exception):
+    """Raised when `--names` is given a locale Faker doesn't provide."""
+
+
 def find_profession(professions: dict[str, Profession], type_: str) -> Profession:
     """Resolve a profession by its data key (e.g. 'agent') or display label (e.g. 'Federal Agent'),
     case-insensitively. Raises ProfessionNotFound if nothing matches."""
@@ -47,7 +51,10 @@ def load_data(options: Namespace, rng: Rng) -> Data:
     pools = Pools(config.POOLS_DIR)
 
     if options.names:
-        faker = Faker(options.names)
+        try:
+            faker = Faker(options.names)
+        except AttributeError as exc:  # Faker's way of saying the locale doesn't exist
+            raise InvalidLocale(f"Unknown --names locale {options.names!r} (e.g. en_US, en_GB)") from exc
         if getattr(options, "seed", None) is not None:
             faker.seed_instance(options.seed)
         male_given_names = faker.first_name_male

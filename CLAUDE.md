@@ -98,6 +98,13 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
   resolved per-character weapon (roll, effective damage modifier, assigned footnote markers) — distinct from
   `models.Weapon` (the raw JSON).
 
+  `char.skills` holds more than numeric scores: sub-skill names are stored as `<base>label` strings next to a
+  `<base>value` score (`craft1label: "Electrician"`, `craft1value: 40`), because that is how the sheet lays them
+  out. Anything iterating skills for display must fold those pairs (see `text._skill_rows`) and anything doing
+  arithmetic must skip non-ints. Veterancy experience checks apply only to fixed skills, the `possible` skills
+  actually picked (`char.picked_skills`) and `char.bonus_skills` — an unpicked `possible` skill is just a default
+  skill. Bonus skills are de-duplicated before picking, so a profession-suggested bonus is never boosted twice.
+
   `rules/education.py` and `rules/employer.py` both auto-fill a sheet field from a JSON data file (`education.json`,
   `employers.json`) unless an explicit override (`--education`/`--employer`) or a "don't" flag
   (`--no-education`/`--no-employer`) is given, and both look up the profession by **display label**, lowercased
@@ -159,6 +166,12 @@ Adding a profession set means adding a JSON file, not touching code.
   generated. Without `--pdf`, `-t/--type` is required (argparse errors otherwise) and `-c/--count` defaults to `1`
   instead of the profession's roster size — this mode is for previewing one character's stats/skills/equipment
   quickly, not for bulk PDF rosters.
+- Bad input is rejected up front, not mid-run: `get_options` raises a usage error (exit 2) for `-c` below 1,
+  `-a` above `-A` or negative, and a `--pdf -o` directory that doesn't exist; `main` returns 2 (no traceback) for a
+  missing data file, bad JSON, an unknown `--names` Faker locale, an unknown profession or an unknown pool.
+  `main` also switches stdout to `errors="replace"` so a non-Latin name can't abort a run on a legacy console.
+- `generate_toc` takes the effective `-c` so TOC page numbers match the bookmarks (cover + inside cover + TOC come
+  first, so the first character is on page 4); `tests/test_pdf.py` checks them against the PDF's real outline.
 - `-t/--type` — profession key or display label (case-insensitive); unknown values list every valid key/label pair.
 - Single specific character: `-t` + `-c 1` + any of `--name`, `--sex`, `--birth-year`, `--birthdate` (precedence over
   `--birth-year`; also sets the exact birthday shown), `--employer`, `--education`.

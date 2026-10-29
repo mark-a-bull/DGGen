@@ -267,34 +267,42 @@ class SheetWriter:
     def _measure(self, text: str, size: int) -> float:
         return pdfmetrics.stringWidth(text, config.DEFAULT_FONT, size)
 
-    def generate_toc(self, professions: Iterable[Profession], pages_per_sheet: int) -> None:
-        """Build a clickable Table of Contents on page 1."""
+    def generate_toc(
+        self,
+        professions: Iterable[Profession],
+        pages_per_sheet: int,
+        count: int | None = None,
+    ) -> None:
+        """Build a clickable Table of Contents on page 3 (after the two cover pages).
+
+        `count` is the per-profession roster size actually being generated (`-c`); when None each
+        profession's own `number_to_generate` is used.
+        """
         self.bookmark("Table of Contents")
         self.c.setFillColorRGB(0, 0, 0)
         self.c.setFont(config.OCR_FONT, 10)
         top = 650
-        pagenum = 2
-        profession = None
-        for count, profession in enumerate(professions):
+        pagenum = 4  # cover, inside cover and this TOC page come first
+        rows = 0
+        for row, profession in enumerate(professions):
             label = generate_label(profession)
             chapter = "{:.<40}".format(shorten(label, 37, placeholder="")) + f"{pagenum:.>4}"
-            self.c.drawString(150, top - self.line_drop(count), chapter)
+            self.c.drawString(150, top - self.line_drop(row), chapter)
             self.c.linkAbsolute(
                 label,
                 label,
-                (145, (top - 6) - self.line_drop(count), 470, (top + 18) - self.line_drop(count)),
+                (145, (top - 6) - self.line_drop(row), 470, (top + 18) - self.line_drop(row)),
             )
-            pagenum += profession.number_to_generate * pages_per_sheet
-        if pages_per_sheet == 1 and profession is not None:
-            chapter = (
-                "{:.<40}".format("Blank Character Sheet Second Page")
-                + f"{pagenum + profession.number_to_generate:.>4}"
-            )
-            self.c.drawString(150, top - self.line_drop(pagenum), chapter)
+            pagenum += (count or profession.number_to_generate) * pages_per_sheet
+            rows = row + 1
+        if pages_per_sheet == 1 and rows:
+            # The blank back page is saved after the last character, i.e. at `pagenum`.
+            chapter = "{:.<40}".format("Blank Character Sheet Second Page") + f"{pagenum:.>4}"
+            self.c.drawString(150, top - self.line_drop(rows), chapter)
             self.c.linkAbsolute(
                 "Back Page",
                 "Back Page",
-                (145, (top - 6) - self.line_drop(pagenum), 470, (top + 18) - self.line_drop(pagenum)),
+                (145, (top - 6) - self.line_drop(rows), 470, (top + 18) - self.line_drop(rows)),
             )
         self.c.showPage()
 
