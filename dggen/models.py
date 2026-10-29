@@ -217,9 +217,9 @@ class EducationProfession:
 class EducationData:
     tier_defaults: dict[str, EducationTier]
     professions: dict[str, EducationProfession]
-    # Id of the pool (in data/pools/) listing field names that take a "B.S./M.S." (rather than
+    # Id of the pool (in dggen/data/pools/) listing field names that take a "B.S./M.S." (rather than
     # "B.A./M.A.") degree, e.g. "Computer Science". Anything not in that pool defaults to
-    # "B.A./M.A.". Institution and field-name value lists themselves live in data/pools/, not
+    # "B.A./M.A.". Institution and field-name value lists themselves live in dggen/data/pools/, not
     # here - this dataclass only holds pool *ids* (resolved against Data.pools at generation
     # time), not the values.
     science_fields_pool: str = "fields/science"

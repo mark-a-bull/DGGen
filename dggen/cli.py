@@ -176,28 +176,28 @@ def get_options(argv: list[str] | None = None) -> argparse.Namespace:
         "--male-given-names",
         action="store",
         default=config.DEFAULT_MALE_NAMES,
-        help="Pool of male given names - a data/pools/ id (see data/pools/README.md), or a path "
+        help="Pool of male given names - a dggen/data/pools/ id (see dggen/data/pools/README.md), or a path "
         "to your own file. Defaults to %(default)s",
     )
     data.add_argument(
         "--female-given-names",
         action="store",
         default=config.DEFAULT_FEMALE_NAMES,
-        help="Pool of female given names - a data/pools/ id, or a path to your own file. "
+        help="Pool of female given names - a dggen/data/pools/ id, or a path to your own file. "
         "Defaults to %(default)s",
     )
     data.add_argument(
         "--surnames",
         action="store",
         default=config.DEFAULT_SURNAMES,
-        help="Pool of family names - a data/pools/ id, or a path to your own file. Defaults to "
+        help="Pool of family names - a dggen/data/pools/ id, or a path to your own file. Defaults to "
         "%(default)s",
     )
     data.add_argument(
         "--towns",
         action="store",
         default=config.DEFAULT_TOWNS,
-        help="Pool of towns - a data/pools/ id, or a path to your own file. Use 'towns/uk' for "
+        help="Pool of towns - a dggen/data/pools/ id, or a path to your own file. Use 'towns/uk' for "
         "the bundled UK town list. Defaults to %(default)s",
     )
     data.add_argument(

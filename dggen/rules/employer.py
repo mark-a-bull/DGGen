@@ -2,7 +2,7 @@
 
 Only fills in char.employer if it is still blank after generate_demographics - i.e. neither
 --employer nor the profession's own employer/division (set by variant profession files like
-data/professions-fbi.json, e.g. "FBI, CID") provided one. That precedence must never be
+dggen/data/professions-fbi.json, e.g. "FBI, CID") provided one. That precedence must never be
 disturbed: those variant files intentionally hardcode real organisational context that this
 module must not overwrite.
 """

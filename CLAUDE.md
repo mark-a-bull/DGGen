@@ -6,9 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 DGGen generates pre-made character sheets (as PDFs) for the Delta Green pen-and-paper RPG, following the character
 creation rules from *Delta Green: Need to Know* and the *Agent's Handbook*. The logic lives in the `dggen/` package;
-`data/` holds the structured JSON/CSV config plus font/image assets, `data/pools/` holds flat value lists (see
+`dggen/data/` holds the structured JSON/CSV config plus font/image assets, `dggen/data/pools/` holds flat value lists (see
 below), and `tests/` holds the pytest suite. `generator.py` is a thin backwards-compatibility shim that just calls
 `dggen.cli.main`.
+
+**Packaging:** the data lives *inside* the package (`dggen/data/`) and is declared under
+`[tool.setuptools.package-data]` in `pyproject.toml`; non-Python files outside a package, or not listed there, are
+silently left out of the wheel and an installed copy then fails with `FileNotFoundError` (editable installs and the
+test suite would never notice). `tests/test_packaging.py` builds a real wheel and checks every asset `dggen.config`
+points at is in it. Only the reference PDFs (`dggen/data/*.pdf`) are deliberately excluded — if you add a new kind of
+runtime file under `dggen/data/`, that test is what tells you whether it ships.
 
 ## Setup and running
 
@@ -77,14 +84,14 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
   raises, only the CLI exits). `from __future__ import annotations` in `models.py` is load-bearing: several
   `from_dict` methods return-annotate their own class, which would `NameError` under eager annotation evaluation.
 
-  **Value pools** (`pools.py`, `data/pools/`): every flat/weighted value list DGGen draws from at random — given
+  **Value pools** (`pools.py`, `dggen/data/pools/`): every flat/weighted value list DGGen draws from at random — given
   names, surnames, towns, employer names, institution names, which fields count as "science" for degree phrasing —
-  lives under `data/pools/` as one `.txt` (flat list) or `.csv` (optional weight column) file per category, auto-
-  discovered by `Pools` at `load_data()` time. A pool's id is its path under `data/pools/` minus the extension (e.g.
+  lives under `dggen/data/pools/` as one `.txt` (flat list) or `.csv` (optional weight column) file per category, auto-
+  discovered by `Pools` at `load_data()` time. A pool's id is its path under `dggen/data/pools/` minus the extension (e.g.
   `employers/federal-law`). Structured config (`education.json`, `employers.json`, and the `--male-given-names`/
   `--female-given-names`/`--surnames`/`--towns` CLI flags) reference pool ids as plain strings rather than embedding
   the lists inline — this is deliberate: it's the boundary between "just add a line to a text file" (no code-shape
-  knowledge needed, `data/pools/README.md` is the whole contract) and "understand the wiring" (which profession
+  knowledge needed, `dggen/data/pools/README.md` is the whole contract) and "understand the wiring" (which profession
   draws from which pool, with what weights). `Pools.choice()`/`.values()` also accept an arbitrary file path instead
   of a registered id, so `--towns /my/custom-towns.csv` still works for a list that isn't checked into the repo.
 
@@ -115,7 +122,7 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
   `rules/education.py`: degree phrasing (`B.S.` vs `B.A.`, `M.S.` vs `M.A.`) is chosen deterministically from the
   field name via the pool at `EducationData.science_fields_pool` (default `fields/science`), not by a second RNG
   draw — this was a real bug (`M.A. Computer Science`) caught by hand-inspecting output before locking in the golden
-  snapshot; if you add a new field to `education.json`, add it to `data/pools/fields/science.txt` too if it should
+  snapshot; if you add a new field to `education.json`, add it to `dggen/data/pools/fields/science.txt` too if it should
   take a `B.S./M.S.` degree. Institution names come from `char.data.pools.choice(pool_id, char.rng)`, where
   `pool_id` is `tier.institution_pool` (e.g. `institutions/university`) unless the profession's
   `institution_pool_overrides` swaps in something more specific for that tier (e.g. a firefighter's `academy` tier
@@ -154,7 +161,7 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
 reportlab/faker-free and are the cheapest, highest-value things to unit test. `shrink_to_fit` takes a `measure`
 callback so it stays pure; `pdf.py` passes the reportlab width function.
 
-**Profession data files** (`data/professions*.json`, e.g. `-fbi`, `-cia`, `-dea`, `-socom`, `-uk`) are swappable via
+**Profession data files** (`dggen/data/professions*.json`, e.g. `-fbi`, `-cia`, `-dea`, `-socom`, `-uk`) are swappable via
 `--professions`; each is `key → {label, number_to_generate, skills, bonds, equipment-kit, employer, division}`.
 Adding a profession set means adding a JSON file, not touching code.
 

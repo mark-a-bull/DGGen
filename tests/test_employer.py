@@ -17,15 +17,17 @@ class TestGenerateEmployer:
         assert char.employer == ""
 
     def test_profession_provided_employer_is_preserved(self, data):
-        """Variant profession files (e.g. data/professions-fbi.json) intentionally hardcode a
+        """Variant profession files (e.g. dggen/data/professions-fbi.json) intentionally hardcode a
         real employer/division; auto-generation must never overwrite that."""
         from dggen.character import Character
         from dggen.data import find_profession, load_data
         from dggen.cli import get_options
         from dggen.rng import Rng
 
+        from dggen import config
+
         options = get_options(
-            ["--seed", "0", "--professions", "data/professions-fbi.json", "--pdf"],
+            ["--seed", "0", "--professions", str(config.DATA_DIR / "professions-fbi.json"), "--pdf"],
         )
         fbi_data = load_data(options, Rng(0))
         prof = find_profession(fbi_data.professions, "cid")
