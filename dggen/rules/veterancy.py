@@ -38,11 +38,11 @@ def veterancy_skill_boosts(char: Character) -> None:
     # order that varies across processes (string hash randomisation), which would make the
     # per-skill experience rolls consume the RNG in a different order each run - i.e. --seed would
     # not actually reproduce a veteran. Ordering it deterministically fixes that.
+    # Only skills the character really has as professional/bonus skills earn experience: an
+    # optional (`possible`) skill that wasn't picked is merely a default skill here.
     skills_to_check = list(
         dict.fromkeys(
-            list(char.profession.skills.fixed.keys())
-            + list(char.profession.skills.possible.keys())
-            + char.bonus_skills,
+            list(char.profession.skills.fixed.keys()) + char.picked_skills + char.bonus_skills,
         ),
     )
     skill_checks = floor(sum(skill_checks_at_age(y) for y in range(25, char.age + 1)))

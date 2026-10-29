@@ -111,3 +111,69 @@ class TestEquipment:
         char = make_character(profession="soldier")
         char.equip("soldier")
         assert all(f"gear{i}" not in char.e for i in range(22, 40))
+
+
+class TestBonusSkills:
+    @pytest.mark.parametrize("seed", range(40))
+    def test_bonus_skills_are_distinct_and_boosted_once(self, make_character, seed):
+        """A profession-suggested bonus skill also appears in the shuffled ALL_BONUS tail; it
+        must not be picked (and boosted +20) a second time."""
+        from dggen.constants import DEFAULT_SKILLS
+        from dggen.rng import Rng
+        from dggen.rules.skills import generate_bonus_skills
+
+        char = make_character(profession="agent", seed=1)
+        char.rng = Rng(seed)
+        char.skills = dict(DEFAULT_SKILLS)
+        char.bonus_skills = []
+        # Every suggestion is picked (75% chance each) and each also sits in ALL_BONUS.
+        char.profession.skills.bonus = ["accounting", "alertness", "athletics", "bureaucracy"]
+
+        generate_bonus_skills(char)
+
+        assert len(char.bonus_skills) == 8
+        assert len(set(char.bonus_skills)) == 8
+        for skill in char.bonus_skills:
+            assert char.skills[skill] == DEFAULT_SKILLS.get(skill, 0) + 20
+
+
+class TestVeterancySkillChecks:
+    def _veteran_candidate(self, make_character, picked):
+        from dggen.rng import Rng
+
+        char = make_character(profession="agent", seed=1)
+        char.age = 60  # plenty of experience checks
+        char.rng = Rng(5)
+        # Optional skills that overlap the default skills (so they are non-zero either way).
+        char.profession.skills.possible = {"ride": 50, "survival": 50, "swim": 50}
+        char.picked_skills = list(picked)
+        char.bonus_skills = []
+        return char
+
+    def test_unpicked_possible_skills_get_no_experience_checks(self, make_character):
+        """Only skills the character actually has as professional skills earn experience; an
+        optional skill that wasn't picked is just a default skill and must stay put."""
+        from dggen.rules.veterancy import veterancy_skill_boosts
+
+        char = self._veteran_candidate(make_character, picked=[])
+        before = dict(char.skills)
+        veterancy_skill_boosts(char)
+        for skill in ("ride", "survival", "swim"):
+            assert char.skills[skill] == before[skill], skill
+
+    def test_picked_possible_skill_does_get_experience(self, make_character):
+        from dggen.rules.veterancy import veterancy_skill_boosts
+
+        char = self._veteran_candidate(make_character, picked=["ride"])
+        before = dict(char.skills)
+        veterancy_skill_boosts(char)
+        assert char.skills["ride"] > before["ride"]
+        assert char.skills["survival"] == before["survival"]
+
+    def test_generate_records_the_picked_possible_skills(self, make_character):
+        char = make_character(profession="agent", seed=3)
+        possible = char.profession.skills.possible
+        assert len(char.picked_skills) == char.profession.skills.possible_count
+        assert set(char.picked_skills) <= set(possible)
+        for skill in char.picked_skills:
+            assert char.skills[skill] == possible[skill]

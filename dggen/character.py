@@ -65,6 +65,7 @@ class Character:
         # Skills and bonds
         self.skills: dict[str, Any] = {}
         self.bonds: dict[int, int] = {}
+        self.picked_skills: list[str] = []  # the profession's `possible` skills actually chosen
         self.bonus_skills: list[str] = []
 
         # Psychological / veterancy
