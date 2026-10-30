@@ -7,11 +7,9 @@ import json
 import logging
 import sys
 from datetime import datetime
-from itertools import cycle, islice
 from pathlib import Path
 
 from dggen import __version__, config
-from dggen.character import Character
 from dggen.data import (
     InvalidLocaleError,
     ProfessionNotFoundError,
@@ -21,10 +19,11 @@ from dggen.data import (
 )
 from dggen.logging_setup import init_logger
 from dggen.options import DataSources, GenerationOptions
-from dggen.pdf import SheetWriter
 from dggen.pools import PoolError
 from dggen.rng import Rng
-from dggen.text import TemplateError, format_details, generate_label, parse_date
+from dggen.roster import generate_roster
+from dggen.sinks import PdfSink, Sink, TextSink
+from dggen.text import TemplateError, parse_date
 
 logger = logging.getLogger("dggen")
 
@@ -380,45 +379,42 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
 
-    generation = generation_from(options)
-    writer = None
-    pages_per_sheet = 2 if options.equip else 1
+    sinks: list[Sink] = [TextSink()]
     if options.pdf:
-        writer = SheetWriter(options.output, pages_per_sheet=pages_per_sheet)
-        writer.add_cover(options.title, options.oconus)
-        if len(professions) > 1:
-            writer.generate_toc(professions, pages_per_sheet, options.count)
-
-    for profession in professions:
-        if writer:
-            writer.bookmark(generate_label(profession))
-        count = options.count or (profession.number_to_generate if options.pdf else 1)
-        for sex in islice(
-            cycle([options.sex] if options.sex else ["female", "male"]),
-            count,
-        ):
-            character = Character.generate(
-                data=data,
-                rng=rng,
-                sex=sex,
-                profession=profession,
-                options=generation,
+        sinks.append(
+            PdfSink(
+                options.output,
+                title=options.title,
+                oconus=options.oconus,
+                equip=options.equip,
+                count=options.count,
             )
-            if options.equip:
-                character.equip(profession.equipment_kit)
-            character.print_footnotes()
+        )
+    for sink in sinks:
+        sink.begin(professions)
 
-            print(format_details(character))
-            print()
+    # Without --pdf this is a one-character preview; with it, each profession's own roster size.
+    count = options.count or (None if options.pdf else 1)
+    roster = generate_roster(
+        data,
+        rng,
+        professions,
+        generation_from(options),
+        count=count,
+        sex=options.sex,
+        equip=options.equip,
+    )
+    current = None
+    for profession, character in roster:
+        if profession is not current:
+            current = profession
+            for sink in sinks:
+                sink.start_profession(profession)
+        for sink in sinks:
+            sink.add(character)
 
-            if writer:
-                writer.add_page(character.d)
-                if pages_per_sheet >= 2:
-                    writer.add_page_2(character.e)
-
-    if writer:
-        writer.save_pdf()
-        logger.info("Wrote %s", options.output)
+    for sink in sinks:
+        sink.finish()
     return 0
 
 
