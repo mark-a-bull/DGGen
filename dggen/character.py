@@ -26,8 +26,8 @@ from dggen.text import age_on, format_name
 if TYPE_CHECKING:
     from dggen.equipped import EquippedWeapon
     from dggen.models import Data, Profession
-    from dggen.serialize import FieldValue
     from dggen.rng import Rng
+    from dggen.serialize import FieldValue
 
 logger = logging.getLogger("dggen")
 

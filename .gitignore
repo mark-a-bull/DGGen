@@ -2,6 +2,9 @@
 __pycache__/
 .venv/
 *.pdf
+# ...except the PDFs that ship with the repo (sample output, reference sheets).
+!sample/*.pdf
+!dggen/data/*.pdf
 *~
 .idea/
 .envrc

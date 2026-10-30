@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+from dggen import config
+from dggen.character import Character
+from dggen.cli import get_options
+from dggen.data import find_profession, load_data
+from dggen.rng import Rng
+
 
 class TestGenerateEmployer:
     def test_default_generates_employer(self, make_character):
@@ -16,27 +22,25 @@ class TestGenerateEmployer:
         char = make_character(profession="Anthropologist", auto_employer=False)
         assert char.employer == ""
 
-    def test_profession_provided_employer_is_preserved(self, data):
+    def test_profession_provided_employer_is_preserved(self):
         """Variant profession files (e.g. dggen/data/professions-fbi.json) intentionally hardcode a
         real employer/division; auto-generation must never overwrite that."""
-        from dggen.character import Character
-        from dggen.data import find_profession, load_data
-        from dggen.cli import get_options
-        from dggen.rng import Rng
-
-        from dggen import config
 
         options = get_options(
-            ["--seed", "0", "--professions", str(config.DATA_DIR / "professions-fbi.json"), "--pdf"],
+            [
+                "--seed",
+                "0",
+                "--professions",
+                str(config.DATA_DIR / "professions-fbi.json"),
+                "--pdf",
+            ],
         )
         fbi_data = load_data(options, Rng(0))
         prof = find_profession(fbi_data.professions, "cid")
         char = Character.generate(data=fbi_data, rng=Rng(1), sex="male", profession=prof)
         assert char.employer == "FBI, CID"
 
-    def test_unknown_profession_label_falls_back_to_default(self, make_character, data):
-        from dggen.character import Character
-        from dggen.rng import Rng
+    def test_unknown_profession_label_falls_back_to_default(self, data):
 
         rng = Rng(3)
         prof = data.professions["agent"]
@@ -51,9 +55,9 @@ class TestTownAwareTemplates:
         # big-city pool, so across enough seeds at least one must use the character's own town.
         results = [make_character(profession="Police Officer", seed=s) for s in range(20)]
         assert all("Police Department" in c.employer for c in results)
-        assert any(
-            c.town.split(",")[0].strip() in c.employer for c in results
-        ), "expected at least one {city} Police Department among 20 seeds"
+        assert any(c.town.split(",")[0].strip() in c.employer for c in results), (
+            "expected at least one {city} Police Department among 20 seeds"
+        )
 
     def test_firefighter_employer_always_fire_department(self, make_character):
         # Firefighter can resolve to either a {city} Fire Department or a named big-city pool;

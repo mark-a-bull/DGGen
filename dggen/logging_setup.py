@@ -16,7 +16,8 @@ def init_logger(verbosity: int, stream: TextIO = sys.stdout) -> None:
     log_format = (
         "%(message)s"
         if is_not_debug
-        else "%(asctime)s %(levelname)-8s %(name)s %(module)s.py:%(funcName)s():%(lineno)d %(message)s"
+        else "%(asctime)s %(levelname)-8s %(name)s "
+        "%(module)s.py:%(funcName)s():%(lineno)d %(message)s"
     )
     logging.basicConfig(level=level, format=log_format, stream=stream)
     if is_not_debug:

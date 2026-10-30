@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from dggen.character import Character
+    from dggen.equipped import EquippedWeapon
     from dggen.models import Profession
 
 # Generational suffixes, which belong after the given name rather than being taken for a surname.
@@ -27,13 +28,18 @@ _SUFFIX = re.compile(r"(?:jr|sr|ii|iii|iv)\.?", re.IGNORECASE)
 _DATE_FORMATS = ("%Y-%m-%d", "%B %d, %Y", "%b %d, %Y", "%m/%d/%Y")
 
 
+def _parse_with(value: str, fmt: str) -> date | None:
+    try:
+        return datetime.strptime(value, fmt).date()
+    except ValueError:
+        return None
+
+
 def parse_date(value: str) -> date:
     """Parse a date given as YYYY-MM-DD or 'Month D, YYYY' (argparse type= callable)."""
     for fmt in _DATE_FORMATS:
-        try:
-            return datetime.strptime(value, fmt).date()
-        except ValueError:
-            continue
+        if (parsed := _parse_with(value, fmt)) is not None:
+            return parsed
     raise argparse.ArgumentTypeError(
         f"Invalid date {value!r}. Use YYYY-MM-DD or 'Month D, YYYY', e.g. 'November 24, 1986'.",
     )
@@ -63,9 +69,7 @@ def format_name(name: str) -> str:
 def age_on(birthdate: date, today: date) -> int:
     """Whole years from `birthdate` to `today`, accounting for whether the birthday has passed."""
     return (
-        today.year
-        - birthdate.year
-        - ((today.month, today.day) < (birthdate.month, birthdate.day))
+        today.year - birthdate.year - ((today.month, today.day) < (birthdate.month, birthdate.day))
     )
 
 
@@ -117,37 +121,38 @@ def _skill_rows(skills: dict[str, int], labels: dict[str, str]) -> list[tuple[st
     return sorted(rows)
 
 
-def format_details(char: Character) -> str:
-    """Render a generated character's structured state as a readable multi-line summary.
-
-    Reads `Character`'s own fields directly rather than the sheet-keyed `d`/`e` dicts from
-    `dggen.serialize`, since those are formatted for the PDF layer (checkbox marks, `_x5`
-    suffixes, "DB=%d" strings) rather than for reading as plain text.
-    """
+def _identity_lines(char: Character) -> list[str]:
     lines = [
         f"{char.name} - {char.profession_label}",
         f"{'Male' if char.sex == 'male' else 'Female'}, age {char.age} "
         f"({char.birth_month_abbrev} {char.birth_day})",
     ]
-    if char.employer:
-        lines.append(f"Employer: {char.employer}")
-    if char.education:
-        lines.append(f"Education: {char.education}")
-    if char.nationality:
-        lines.append(f"Nationality: {char.nationality}")
+    for label, value in (
+        ("Employer", char.employer),
+        ("Education", char.education),
+        ("Nationality", char.nationality),
+    ):
+        if value:
+            lines.append(f"{label}: {value}")
+    return lines
 
-    lines.append("")
-    lines.append("Statistics:")
+
+def _stat_lines(char: Character) -> list[str]:
+    lines = ["Statistics:"]
     for stat in STATS:
         score = char.stats.get(stat, 0)
         lines.append(f"  {stat.capitalize():<14} {score:3d}  (x5 {score * 5})")
+    return lines
 
-    lines.append("")
+
+def _condition_lines(char: Character) -> list[str]:
     sanity = f"Sanity: {char.sanity}"
     if char.current_sanity is not None:
         sanity += f" (current {char.current_sanity})"
-    lines.append(f"Hit Points: {char.hitpoints}   Willpower: {char.willpower}   {sanity}")
-    lines.append(f"Breaking Point: {char.breaking_point}   Damage Bonus: {char.damage_bonus:+d}")
+    lines = [
+        f"Hit Points: {char.hitpoints}   Willpower: {char.willpower}   {sanity}",
+        f"Breaking Point: {char.breaking_point}   Damage Bonus: {char.damage_bonus:+d}",
+    ]
     if char.disorder:
         lines.append(f"Disorder: {char.disorder}")
     if char.adapted_to_violence or char.adapted_to_helplessness:
@@ -155,39 +160,63 @@ def format_details(char: Character) -> str:
             f"Adapted to Violence: {char.adapted_to_violence}   "
             f"Adapted to Helplessness: {char.adapted_to_helplessness}",
         )
+    return lines
 
-    lines.append("")
-    lines.append("Skills:")
-    for name, score in _skill_rows(char.skills, char.skill_labels):
-        lines.append(f"  {name:<26} {score}%")
 
+def _weapon_line(weapon: EquippedWeapon) -> str:
+    parts = [f"{weapon.name} ({weapon.roll}%)"]
+    if weapon.base_range:
+        parts.append(f"range {weapon.base_range}")
+    if weapon.ap is not None:
+        parts.append(f"ap {weapon.ap}")
+    if weapon.has_damage and weapon.damage_dice is not None and weapon.damage_die_type:
+        modifier = f"{weapon.damage_modifier:+d}" if weapon.damage_modifier else ""
+        parts.append(f"damage {weapon.damage_dice}D{weapon.damage_die_type}{modifier}")
+    if weapon.ammo is not None:
+        parts.append(f"ammo {weapon.ammo}")
+    return f"  Weapon: {' '.join(parts)}"
+
+
+def _equipment_lines(char: Character) -> list[str]:
+    lines = ["Equipment:", *(_weapon_line(weapon) for weapon in char.weapons)]
+    for gear in char.gear_lines:
+        # Continuation lines from equipment.py's wrap(..., subsequent_indent="  ") - merge back
+        # onto the previous entry instead of prefixing "Gear:" again.
+        if gear.startswith("  ") and lines[-1].startswith("  Gear:"):
+            lines[-1] += " " + gear.strip()
+        else:
+            lines.append(f"  Gear: {gear}")
+    return lines
+
+
+def format_details(char: Character) -> str:
+    """Render a generated character's structured state as a readable multi-line summary.
+
+    Reads `Character`'s own fields directly rather than the sheet-keyed `d`/`e` dicts from
+    `dggen.serialize`, since those are formatted for the PDF layer (checkbox marks, `_x5`
+    suffixes, "DB=%d" strings) rather than for reading as plain text.
+    """
+    sections = [
+        _identity_lines(char),
+        _stat_lines(char),
+        _condition_lines(char),
+        [
+            "Skills:",
+            *(
+                f"  {name:<26} {score}%"
+                for name, score in _skill_rows(char.skills, char.skill_labels)
+            ),
+        ],
+    ]
     if char.bonds:
-        lines.append("")
-        lines.append("Bonds:")
-        for i, score in char.bonds.items():
-            lines.append(f"  Bond {i + 1}: {score}")
-
+        sections.append(
+            ["Bonds:", *(f"  Bond {i + 1}: {score}" for i, score in char.bonds.items())]
+        )
     if char.weapons or char.gear_lines:
-        lines.append("")
-        lines.append("Equipment:")
-        for weapon in char.weapons:
-            parts = [f"{weapon.name} ({weapon.roll}%)"]
-            if weapon.base_range:
-                parts.append(f"range {weapon.base_range}")
-            if weapon.ap is not None:
-                parts.append(f"ap {weapon.ap}")
-            if weapon.has_damage and weapon.damage_dice is not None and weapon.damage_die_type:
-                modifier = f"{weapon.damage_modifier:+d}" if weapon.damage_modifier else ""
-                parts.append(f"damage {weapon.damage_dice}D{weapon.damage_die_type}{modifier}")
-            if weapon.ammo is not None:
-                parts.append(f"ammo {weapon.ammo}")
-            lines.append(f"  Weapon: {' '.join(parts)}")
-        for gear in char.gear_lines:
-            # Continuation lines from equipment.py's wrap(..., subsequent_indent="  ") - merge
-            # back onto the previous entry instead of prefixing "Gear:" again.
-            if gear.startswith("  ") and lines[-1].startswith("  Gear:"):
-                lines[-1] += " " + gear.strip()
-            else:
-                lines.append(f"  Gear: {gear}")
-
+        sections.append(_equipment_lines(char))
+    lines: list[str] = []
+    for section in sections:
+        if lines:
+            lines.append("")  # blank line between sections
+        lines.extend(section)
     return "\n".join(lines)

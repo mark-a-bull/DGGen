@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "pypdf>=4", "mypy>=1.10", "types-reportlab"]
+dev = ["pytest>=8", "pypdf>=4", "mypy>=1.10", "types-reportlab", "ruff>=0.6"]
 
 [project.scripts]
 dggen = "dggen.cli:main"
@@ -43,3 +43,26 @@ python_version = "3.10"
 files = ["dggen"]
 strict = true
 warn_unused_ignores = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.format]
+line-ending = "lf"
+
+[tool.ruff.lint]
+select = [
+    "E", "W",  # pycodestyle
+    "F",       # pyflakes
+    "I",       # import order
+    "N",       # naming
+    "UP",      # modern syntax
+    "B",       # likely bugs
+    "SIM",     # simplifications
+    "PERF",    # needless slowness
+    "RUF",     # ruff's own
+    "PLC",     # pylint conventions (imports not at top level, ...)
+    "PLR0912", # too many branches
+    "ARG",     # unused arguments
+]

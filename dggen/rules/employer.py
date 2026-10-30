@@ -21,7 +21,8 @@ def generate_employer(char: Character, employer_data: EmployerData) -> None:
         return  # --employer override, or the profession's own employer/division, already set
 
     entry = employer_data.professions.get(
-        char.profession.label.lower(), employer_data.professions["_default"],
+        char.profession.label.lower(),
+        employer_data.professions["_default"],
     )
     option = char.rng.choices(entry.options, weights=[o.weight for o in entry.options], k=1)[0]
 

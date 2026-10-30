@@ -26,8 +26,12 @@ def _build(prof_key: str, seed: int, veterancy: bool):
     data = load_data(options, rng)
     prof = find_profession(data.professions, prof_key)
     char = Character.generate(
-        data=data, rng=rng, sex="male", profession=prof,
-        veterancy_enabled=veterancy, damaged=True,
+        data=data,
+        rng=rng,
+        sex="male",
+        profession=prof,
+        veterancy_enabled=veterancy,
+        damaged=True,
     )
     char.equip(prof.equipment_kit)
     char.print_footnotes()
@@ -37,7 +41,9 @@ def _build(prof_key: str, seed: int, veterancy: bool):
 @pytest.mark.parametrize("scenario", sorted(GOLDEN))
 def test_serialized_fields_match_golden(scenario):
     prof_key, seed_part, vet_part = scenario.split("|")
-    char = _build(prof_key, int(seed_part.removeprefix("seed")), bool(int(vet_part.removeprefix("vet"))))
+    char = _build(
+        prof_key, int(seed_part.removeprefix("seed")), bool(int(vet_part.removeprefix("vet")))
+    )
     expected = GOLDEN[scenario]
     assert char.d == expected["d"]
     assert char.e == expected["e"]
