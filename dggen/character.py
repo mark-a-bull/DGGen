@@ -2,9 +2,8 @@
 
 `Character` holds typed domain state - stats, skills, bonds, derived attributes, demographics,
 psychological state, and equipped weapons/gear. It knows nothing about sheet coordinates or
-display formatting. The `d` (front page) and `e` (back/equipment page) field dicts that the PDF
-layer consumes are produced on demand by `dggen.serialize`, exposed here as read-only properties
-so the rest of the app (and the tests) can keep using `character.d` / `character.e`.
+display formatting. The sheet's field dicts are produced from it by `dggen.serialize`
+(`to_front_fields` / `to_back_fields`); the dependency points that way, never from here.
 
 Rule steps live in `dggen.rules.*` as functions that take and mutate a `Character` (via its
 `.rng`); this class holds the shared state and the small helpers (`distinguishing`,
@@ -18,7 +17,7 @@ from datetime import date, datetime
 from textwrap import wrap
 from typing import TYPE_CHECKING
 
-from dggen import constants, serialize
+from dggen import constants
 from dggen.constants import MONTHS
 from dggen.options import GenerationOptions
 from dggen.rules import education, employer, equipment, skills, stats, veterancy
@@ -28,7 +27,6 @@ if TYPE_CHECKING:
     from dggen.equipped import EquippedWeapon
     from dggen.models import Data, Profession
     from dggen.rng import Rng
-    from dggen.serialize import FieldValue
 
 logger = logging.getLogger("dggen")
 
@@ -167,16 +165,6 @@ class Character:
         if len(notes) > MAX_NOTE_LINES:
             logger.warning("Too many footnotes - truncated.")
         self.note_lines = notes[:MAX_NOTE_LINES]
-
-    @property
-    def d(self) -> dict[str, FieldValue]:
-        """Front-page field dict, produced from structured state on demand."""
-        return serialize.to_front_fields(self)
-
-    @property
-    def e(self) -> dict[str, FieldValue]:
-        """Back / equipment-page field dict, produced from structured state on demand."""
-        return serialize.to_back_fields(self)
 
     def __str__(self) -> str:
         return ", ".join(

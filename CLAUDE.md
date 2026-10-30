@@ -44,7 +44,7 @@ pytest -k veterancy                         # by keyword
 Reproducibility is what makes the domain testable: all randomness flows through one seedable `dggen.rng.Rng`
 (`--seed N` on the CLI). The `make_character` fixture in `tests/conftest.py` drives the whole pipeline
 (`load_data` + `Character.generate`) from a single seeded `Rng`, exactly as the CLI does, so a seed reproduces a
-character including its name. If you touch generation, prefer asserting on the field dicts (`character.d`/`.e`) over
+character including its name. If you touch generation, prefer asserting on the field dicts (`serialize.to_front_fields(char)` / `to_back_fields(char)`) over
 rendered pixels.
 
 `tests/test_golden.py` compares the serialized `d`/`e` for every profession × seed × veterancy against a captured
@@ -183,8 +183,8 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
 - **Serialization** (`serialize.py`): `to_front_fields`/`to_back_fields` turn a `Character`'s structured state into
   the `d` (front) and `e` (back/equipment) field dicts keyed by sheet field name — the *only* contract with the PDF
   layer. This is the single place that knows display formatting (checkbox `X`, `_x5` multiples, `DB=%d`, weapon
-  roll/damage strings). `Character.d`/`.e` are read-only properties delegating here, so callers/tests still use
-  `character.d`/`.e`. Kept reportlab-free. **RNG-ordering constraint:** anything that consumes `rng` (e.g.
+  roll/damage strings). The dependency runs one way: `serialize` imports `Character`, never the reverse, so call
+  `to_front_fields(char)` rather than looking for a property on the character. Kept reportlab-free. **RNG-ordering constraint:** anything that consumes `rng` (e.g.
   distinguishing-feature lookups) must happen during generation, not in serialization, or a fixed seed stops
   reproducing — `serialize` must be a pure function of already-generated state.
 
@@ -201,10 +201,20 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
   which shrinks font size then ellipsis-truncates — reuse this for any new free-text field. Weapon names are drawn in
   full and shrunk (never cut at a fixed length, which made "Grenade launcher" and "Grenade machine gun" identical).
 
-- **Interface** (`cli.py`, `logging_setup.py`, `config.py`): argparse + the generation loop; `config.py` centralises
+- **Library entry points** (`options.py`, `roster.py`, `sinks.py`, `summary.py`): `DataSources` /
+  `GenerationOptions` are plain frozen dataclasses (no argparse) taken by `load_data` and `Character.generate`;
+  `roster.generate_roster(data, rng, professions, options, count=, sex=, equip=)` lazily yields
+  `(profession, character)` with each character already equipped and its footnotes flushed (use
+  `generate_character` rather than repeating generate → equip → `print_footnotes`); `sinks.TextSink` / `PdfSink`
+  consume them through four methods (`begin`, `start_profession`, `add`, `finish`), so a new output format is one
+  more class. `summary.py` renders the text view; `Profession.roster_label()` gives the roster/bookmark label.
+
+- **Interface** (`cli.py`, `logging_setup.py`, `config.py`): argparse (`build_parser` describes the flags,
+  `validate_options` holds the cross-flag rules, `get_options` does both, `sources_from` / `generation_from` build
+  the option dataclasses) + `main`, which wires roster → sinks; `config.py` centralises
   page geometry, colours, fonts, and all asset/data paths.
 
-**Pure helpers** (`text.py`) — `parse_date`, `format_name`, `age_on`, `generate_label`, `shrink_to_fit` — are
+**Pure helpers** (`text.py`) — `parse_date`, `format_name`, `age_on`, `fill_template`, `shrink_to_fit` — are
 reportlab/faker-free and are the cheapest, highest-value things to unit test. `shrink_to_fit` takes a `measure`
 callback so it stays pure; `pdf.py` passes the reportlab width function.
 
@@ -215,7 +225,7 @@ Adding a profession set means adding a JSON file, not touching code.
 ## Key CLI flags
 
 - **Default output is plain text, not a PDF.** Every generated character is printed as a readable summary
-  (`dggen.text.format_details`) to stdout. Pass `--pdf` to also write a PDF via `-o/--output`, which restores the
+  (`dggen.summary.format_details`) to stdout. Pass `--pdf` to also write a PDF via `-o/--output`, which restores the
   historical behavior: without `-t`, every profession's full roster (`number_to_generate` characters each) is
   generated. Without `--pdf`, `-t/--type` is required (argparse errors otherwise) and `-c/--count` defaults to `1`
   instead of the profession's roster size — this mode is for previewing one character's stats/skills/equipment

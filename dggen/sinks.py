@@ -11,7 +11,8 @@ import logging
 from typing import TYPE_CHECKING, Protocol
 
 from dggen.pdf import SheetWriter
-from dggen.text import format_details, generate_label
+from dggen.serialize import to_back_fields, to_front_fields
+from dggen.summary import format_details
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -79,12 +80,12 @@ class PdfSink:
             self.writer.generate_toc(professions, self.pages_per_sheet, self.count)
 
     def start_profession(self, profession: Profession) -> None:
-        self.writer.bookmark(generate_label(profession))
+        self.writer.bookmark(profession.roster_label())
 
     def add(self, character: Character) -> None:
-        self.writer.add_page(character.d)
+        self.writer.add_page(to_front_fields(character))
         if self.pages_per_sheet >= 2:
-            self.writer.add_page_2(character.e)
+            self.writer.add_page_2(to_back_fields(character))
 
     def finish(self) -> None:
         self.writer.save_pdf()

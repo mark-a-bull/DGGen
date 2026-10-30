@@ -66,6 +66,10 @@ class Profession:
             division=d.get("division", ""),
         )
 
+    def roster_label(self) -> str:
+        """Human-readable roster label: 'Label, Employer, Division', skipping blank parts."""
+        return ", ".join(part for part in (self.label, self.employer, self.division) if part)
+
 
 @dataclass
 class Damage:

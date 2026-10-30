@@ -120,3 +120,10 @@ class TestParsingIsSeparateFromValidation:
         with pytest.raises(SystemExit):
             get_options(["-a", "40", "-A", "30", "--pdf"])
         assert get_options(["-t", "agent"]).type == "agent"
+
+
+def test_an_unparseable_birthdate_is_a_usage_error(capsys):
+    with pytest.raises(SystemExit) as exc:
+        main(["-t", "agent", "--birthdate", "not a date"])
+    assert exc.value.code == 2
+    assert "Invalid date" in capsys.readouterr().err

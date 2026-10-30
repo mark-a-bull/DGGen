@@ -6,7 +6,7 @@ import argparse
 import json
 import logging
 import sys
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 from dggen import __version__, config
@@ -26,6 +26,14 @@ from dggen.sinks import PdfSink, Sink, TextSink
 from dggen.text import TemplateError, parse_date
 
 logger = logging.getLogger("dggen")
+
+
+def _date_argument(value: str) -> date:
+    """argparse `type=` for dates: text.parse_date, with its error turned into a usage error."""
+    try:
+        return parse_date(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from None
 
 
 def _positive_int(value: str) -> int:
@@ -138,7 +146,7 @@ def build_parser() -> argparse.ArgumentParser:
     gen.add_argument(
         "--birthdate",
         action="store",
-        type=parse_date,
+        type=_date_argument,
         help="Set exact birthdate for all generated characters, e.g. '1986-11-24' or "
         "'November 24, 1986'. Takes precedence over --birth-year.",
     )

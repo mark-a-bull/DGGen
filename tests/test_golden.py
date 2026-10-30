@@ -16,6 +16,7 @@ from dggen.character import Character
 from dggen.data import find_profession, load_data
 from dggen.options import DataSources, GenerationOptions
 from dggen.rng import Rng
+from dggen.serialize import to_back_fields, to_front_fields
 
 GOLDEN = json.loads((Path(__file__).parent / "golden" / "characters.json").read_text("utf-8"))
 
@@ -43,5 +44,5 @@ def test_serialized_fields_match_golden(scenario):
         prof_key, int(seed_part.removeprefix("seed")), bool(int(vet_part.removeprefix("vet")))
     )
     expected = GOLDEN[scenario]
-    assert char.d == expected["d"]
-    assert char.e == expected["e"]
+    assert to_front_fields(char) == expected["d"]
+    assert to_back_fields(char) == expected["e"]
