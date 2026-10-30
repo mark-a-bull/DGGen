@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from dggen import config
 from dggen.character import Character
-from dggen.cli import get_options
 from dggen.data import find_profession, load_data
+from dggen.options import DataSources
 from dggen.rng import Rng
 
 
@@ -26,16 +26,8 @@ class TestGenerateEmployer:
         """Variant profession files (e.g. dggen/data/professions-fbi.json) intentionally hardcode a
         real employer/division; auto-generation must never overwrite that."""
 
-        options = get_options(
-            [
-                "--seed",
-                "0",
-                "--professions",
-                str(config.DATA_DIR / "professions-fbi.json"),
-                "--pdf",
-            ],
-        )
-        fbi_data = load_data(options, Rng(0))
+        sources = DataSources(professions=config.DATA_DIR / "professions-fbi.json")
+        fbi_data = load_data(sources, Rng(0))
         prof = find_profession(fbi_data.professions, "cid")
         char = Character.generate(data=fbi_data, rng=Rng(1), sex="male", profession=prof)
         assert char.employer == "FBI, CID"

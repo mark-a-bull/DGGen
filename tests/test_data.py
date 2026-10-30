@@ -7,8 +7,9 @@ from dataclasses import replace
 import pytest
 
 from dggen import config
-from dggen.cli import get_options, main
+from dggen.cli import main
 from dggen.data import ProfessionNotFoundError, ambiguous_keys, find_profession, load_data
+from dggen.options import DataSources
 from dggen.rng import Rng
 
 
@@ -36,8 +37,8 @@ def test_unknown_profession_raises_with_valid_options_listed(data):
 @pytest.fixture
 def fbi_professions():
 
-    options = get_options(["--pdf", "--professions", str(config.DATA_DIR / "professions-fbi.json")])
-    return load_data(options, Rng(0)).professions
+    sources = DataSources(professions=config.DATA_DIR / "professions-fbi.json")
+    return load_data(sources, Rng(0)).professions
 
 
 class TestAmbiguousLabels:

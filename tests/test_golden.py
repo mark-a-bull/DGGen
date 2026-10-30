@@ -13,25 +13,23 @@ from pathlib import Path
 import pytest
 
 from dggen.character import Character
-from dggen.cli import get_options
 from dggen.data import find_profession, load_data
+from dggen.options import DataSources, GenerationOptions
 from dggen.rng import Rng
 
 GOLDEN = json.loads((Path(__file__).parent / "golden" / "characters.json").read_text("utf-8"))
 
 
 def _build(prof_key: str, seed: int, veterancy: bool):
-    options = get_options(["--seed", str(seed), "--pdf"])
     rng = Rng(seed)
-    data = load_data(options, rng)
+    data = load_data(DataSources(seed=seed), rng)
     prof = find_profession(data.professions, prof_key)
     char = Character.generate(
         data=data,
         rng=rng,
         sex="male",
         profession=prof,
-        veterancy_enabled=veterancy,
-        damaged=True,
+        options=GenerationOptions(veterancy_enabled=veterancy, damaged=True),
     )
     char.equip(prof.equipment_kit)
     char.print_footnotes()

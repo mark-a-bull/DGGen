@@ -20,6 +20,7 @@ from dggen.data import (
     load_data,
 )
 from dggen.logging_setup import init_logger
+from dggen.options import DataSources, GenerationOptions
 from dggen.pdf import SheetWriter
 from dggen.pools import PoolError
 from dggen.rng import Rng
@@ -294,6 +295,42 @@ def get_options(argv: list[str] | None = None) -> argparse.Namespace:
     return options
 
 
+def sources_from(options: argparse.Namespace) -> DataSources:
+    """The data locations named on the command line."""
+    return DataSources(
+        professions=options.professions,
+        equipment=options.equipment,
+        distinguishing_features=options.distinguishing_features,
+        education_data=options.education_data,
+        employer_data=options.employer_data,
+        male_given_names=options.male_given_names,
+        female_given_names=options.female_given_names,
+        surnames=options.surnames,
+        towns=options.towns,
+        names_locale=options.names,
+        seed=options.seed,
+    )
+
+
+def generation_from(options: argparse.Namespace) -> GenerationOptions:
+    """How each character should be generated, per the command line."""
+    return GenerationOptions(
+        label_override=options.label,
+        employer_override=options.employer,
+        name_override=options.name,
+        education_override=options.education,
+        min_age=options.min_age,
+        max_age=options.max_age,
+        birth_year=options.birth_year,
+        birthdate=options.birthdate,
+        nationality=options.nationality,
+        veterancy_enabled=options.veterancy,
+        damaged=options.damaged,
+        auto_education=options.auto_education,
+        auto_employer=options.auto_employer,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     # Names from --names locales (or --name) can be non-Latin, and a redirected Windows stdout is
     # often a legacy codepage that can't encode them. Degrade the console text rather than letting
@@ -307,7 +344,7 @@ def main(argv: list[str] | None = None) -> int:
     rng = Rng(options.seed)
 
     try:
-        data = load_data(options, rng)
+        data = load_data(sources_from(options), rng)
         professions = (
             [find_profession(data.professions, options.type)]
             if options.type
@@ -332,6 +369,7 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
 
+    generation = generation_from(options)
     writer = None
     pages_per_sheet = 2 if options.equip else 1
     if options.pdf:
@@ -353,19 +391,7 @@ def main(argv: list[str] | None = None) -> int:
                 rng=rng,
                 sex=sex,
                 profession=profession,
-                label_override=options.label,
-                employer_override=options.employer,
-                name_override=options.name,
-                education_override=options.education,
-                min_age=options.min_age,
-                max_age=options.max_age,
-                birth_year=options.birth_year,
-                birthdate=options.birthdate,
-                nationality=options.nationality,
-                veterancy_enabled=options.veterancy,
-                damaged=options.damaged,
-                auto_education=options.auto_education,
-                auto_employer=options.auto_employer,
+                options=generation,
             )
             if options.equip:
                 character.equip(profession.equipment_kit)
