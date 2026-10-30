@@ -8,17 +8,21 @@ from __future__ import annotations
 
 import csv
 import json
-from typing import TYPE_CHECKING
+from contextlib import contextmanager
+from typing import TYPE_CHECKING, Any
 
 from faker import Faker
 
 from dggen import config
 from dggen.models import Data, EducationData, EmployerData, Kit, Profession, Weapon
 from dggen.pools import Pools
+from dggen.validate import DataError, validate_data
 
 if TYPE_CHECKING:
-    from argparse import Namespace
+    from collections.abc import Iterator
+    from pathlib import Path
 
+    from dggen.options import DataSources
     from dggen.rng import Rng
 
 
@@ -70,65 +74,82 @@ def find_profession(professions: dict[str, Profession], type_: str) -> Professio
     raise ProfessionNotFoundError(type_, professions)
 
 
-def load_data(options: Namespace, rng: Rng) -> Data:
+@contextmanager
+def _reading(path: Path) -> Iterator[Any]:
+    """Yield a data file's parsed JSON; report a bad file by name rather than as a bare error.
+
+    A missing key in the file's structure (a profession with no "skills", say) would otherwise
+    surface as an anonymous `KeyError: 'skills'`.
+    """
+    with path.open(encoding="utf-8") as f:
+        try:
+            raw = json.load(f)
+        except json.JSONDecodeError as exc:
+            raise DataError(f"{path}: not valid JSON ({exc})") from exc
+    try:
+        yield raw
+    except KeyError as exc:
+        raise DataError(f"{path}: missing required key {exc.args[0]!r}") from exc
+
+
+def load_data(sources: DataSources, rng: Rng) -> Data:
     pools = Pools(config.POOLS_DIR)
 
-    if options.names:
+    if sources.names_locale:
         try:
-            faker = Faker(options.names)
+            faker = Faker(sources.names_locale)
         except AttributeError as exc:  # Faker's way of saying the locale doesn't exist
             raise InvalidLocaleError(
-                f"Unknown --names locale {options.names!r} (e.g. en_US, en_GB)"
+                f"Unknown --names locale {sources.names_locale!r} (e.g. en_US, en_GB)"
             ) from exc
-        if getattr(options, "seed", None) is not None:
-            faker.seed_instance(options.seed)
+        if sources.seed is not None:
+            faker.seed_instance(sources.seed)
         male_given_names = faker.first_name_male
         female_given_names = faker.first_name_female
         family_names = faker.last_name
     else:
         # Validate eagerly: a bad --male-given-names/etc. should fail at startup, not partway
         # through generating a roster.
-        pools.validate(options.male_given_names)
-        pools.validate(options.female_given_names)
-        pools.validate(options.surnames)
+        pools.validate(sources.male_given_names)
+        pools.validate(sources.female_given_names)
+        pools.validate(sources.surnames)
 
         def male_given_names() -> str:
-            return pools.choice(options.male_given_names, rng)
+            return pools.choice(sources.male_given_names, rng)
 
         def female_given_names() -> str:
-            return pools.choice(options.female_given_names, rng)
+            return pools.choice(sources.female_given_names, rng)
 
         def family_names() -> str:
-            return pools.choice(options.surnames, rng)
+            return pools.choice(sources.surnames, rng)
 
-    pools.validate(options.towns)
+    pools.validate(sources.towns)
 
     def towns() -> str:
-        return pools.choice(options.towns, rng)
+        return pools.choice(sources.towns, rng)
 
-    with options.professions.open() as f:
-        professions = {k: Profession.from_dict(v) for k, v in json.load(f).items()}
-    with options.equipment.open() as f:
-        equipment = json.load(f)
-        kits = {k: Kit.from_dict(v) for k, v in equipment["kits"].items()}
-        weapons = {k: Weapon.from_dict(v) for k, v in equipment["weapons"].items()}
-        armour = equipment["armour"]
+    with _reading(sources.professions) as raw:
+        professions = {k: Profession.from_dict(v) for k, v in raw.items()}
+    with _reading(sources.equipment) as raw:
+        kits = {k: Kit.from_dict(v) for k, v in raw["kits"].items()}
+        weapons = {k: Weapon.from_dict(v) for k, v in raw["weapons"].items()}
+        armour = raw["armour"]
 
     distinguishing: dict[tuple[str, int], list[str]] = {}
-    with options.distinguishing_features.open() as f:
+    with sources.distinguishing_features.open(encoding="utf-8", newline="") as f:
         for row in csv.DictReader(f):
             for value in range(int(row["from"]), int(row["to"]) + 1):
                 distinguishing.setdefault((row["statistic"], value), []).append(
                     row["distinguishing"],
                 )
 
-    with options.education_data.open() as f:
-        education = EducationData.from_dict(json.load(f))
+    with _reading(sources.education_data) as raw:
+        education = EducationData.from_dict(raw)
 
-    with options.employer_data.open() as f:
-        employer = EmployerData.from_dict(json.load(f))
+    with _reading(sources.employer_data) as raw:
+        employer = EmployerData.from_dict(raw)
 
-    return Data(
+    data = Data(
         male_given_names=male_given_names,
         female_given_names=female_given_names,
         family_names=family_names,
@@ -142,3 +163,5 @@ def load_data(options: Namespace, rng: Rng) -> Data:
         employer=employer,
         pools=pools,
     )
+    validate_data(data)  # a dangling reference should fail here, not partway through a roster
+    return data

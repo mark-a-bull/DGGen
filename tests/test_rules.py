@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from datetime import date
 from itertools import pairwise
+from typing import Any
 
 import pytest
 
@@ -20,7 +21,18 @@ from dggen.rules.veterancy import (
     stat_losses_at_age,
     veterancy_skill_boosts,
 )
+from dggen.serialize import to_back_fields as _to_back_fields
+from dggen.serialize import to_front_fields as _to_front_fields
 from dggen.text import age_on
+
+
+def _front(char) -> dict[str, Any]:
+    """The sheet's front fields; `Any` values so tests can compare them without narrowing."""
+    return _to_front_fields(char)
+
+
+def _back(char) -> dict[str, Any]:
+    return _to_back_fields(char)
 
 
 class TestDamageBonus:
@@ -48,7 +60,7 @@ class TestSkillChecksAtAge:
 class TestDerivedAttributes:
     def test_formulas(self, make_character):
         char = make_character()
-        d = char.d
+        d = _front(char)
         assert d["hitpoints"] == round((d["strength"] + d["constitution"]) / 2.0)
         assert d["willpower"] == d["power"]
         assert d["sanity"] == d["power"] * 5
@@ -57,19 +69,19 @@ class TestDerivedAttributes:
     def test_all_six_stats_populated_and_in_range(self, make_character):
         char = make_character()
         for stat in STATS:
-            assert 1 <= char.d[stat] <= 18
+            assert 1 <= _front(char)[stat] <= 18
 
 
 class TestDeterminism:
     def test_same_seed_same_stats_and_skills(self, make_character):
         a = make_character(seed=7)
         b = make_character(seed=7)
-        assert a.d == b.d
+        assert _front(a) == _front(b)
 
     def test_different_seed_differs(self, make_character):
         a = make_character(seed=7)
         b = make_character(seed=8)
-        assert a.d != b.d
+        assert _front(a) != _front(b)
 
 
 class TestOverrides:
@@ -81,14 +93,14 @@ class TestOverrides:
             education_override="PhD Harvard",
             birthdate=date(1986, 11, 24),
         )
-        assert char.d["name"] == "FINCH, Dr. Arthur"
-        assert char.d["employer"] == "Field Museum"
-        assert char.d["education"] == "PhD Harvard"
-        assert char.d["age"].startswith(str(char.age))
+        assert _front(char)["name"] == "FINCH, Dr. Arthur"
+        assert _front(char)["employer"] == "Field Museum"
+        assert _front(char)["education"] == "PhD Harvard"
+        assert _front(char)["age"].startswith(str(char.age))
         # Random content still produced despite the overrides: anthropology is a fixed
         # professional skill (50) that bonus skills may raise further.
-        assert char.d["anthropology"] >= 50
-        assert all(stat in char.d for stat in STATS)
+        assert _front(char)["anthropology"] >= 50
+        assert all(stat in _front(char) for stat in STATS)
 
 
 class TestVeterancy:
@@ -101,7 +113,7 @@ class TestVeterancy:
             damaged=False,
         )
         for stat in PHYSICAL_STATS:
-            assert char.d[stat] >= 1
+            assert _front(char)[stat] >= 1
 
     def test_veterancy_boosts_are_nonnegative(self, make_character):
         base = make_character(seed=5, birthdate=date(1996, 1, 1))
@@ -113,17 +125,17 @@ class TestVeterancy:
         )
         # A veteran's fixed professional skills should be at least their base value.
         for skill in base.profession.skills.fixed:
-            if isinstance(base.d.get(skill), int):
-                assert vet.d[skill] >= base.profession.skills.fixed[skill]
+            if isinstance(_front(base).get(skill), int):
+                assert _front(vet)[skill] >= base.profession.skills.fixed[skill]
 
 
 class TestEquipment:
     def test_unarmed_always_present_and_weapon_cap(self, make_character):
         char = make_character(profession="agent")
         char.equip("agent")
-        assert char.e["weapon0"]  # slot 0 populated
+        assert _back(char)["weapon0"]  # slot 0 populated
         # At most 7 weapon slots (0-6).
-        assert all(f"weapon{i}" not in char.e for i in range(7, 12))
+        assert all(f"weapon{i}" not in _back(char) for i in range(7, 12))
 
     def test_overlong_gear_is_truncated_to_the_sheet_with_a_warning(self, make_character, caplog):
 
@@ -136,7 +148,7 @@ class TestEquipment:
         assert len(char.gear_lines) == MAX_GEAR_LINES
         assert char.gear_lines[-1] == f"Item {MAX_GEAR_LINES - 1}"
         assert not [
-            key for key in char.e if key.startswith("gear") and int(key[4:]) >= MAX_GEAR_LINES
+            key for key in _back(char) if key.startswith("gear") and int(key[4:]) >= MAX_GEAR_LINES
         ]
         assert "Item 29" in caplog.text  # the warning names what was dropped
 
@@ -303,8 +315,8 @@ class TestSkillLabels:
 
     def test_the_sheet_still_receives_labels_and_scores(self, make_character):
         char = make_character(profession="engineer", seed=3)
-        assert char.d["craft1label"] == "Electrician"
-        assert char.d["craft1value"] == char.skills["craft1value"]
+        assert _front(char)["craft1label"] == "Electrician"
+        assert _front(char)["craft1value"] == char.skills["craft1value"]
 
 
 class TestStatLossesAtAge:

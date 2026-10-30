@@ -2,9 +2,8 @@
 
 `Character` holds typed domain state - stats, skills, bonds, derived attributes, demographics,
 psychological state, and equipped weapons/gear. It knows nothing about sheet coordinates or
-display formatting. The `d` (front page) and `e` (back/equipment page) field dicts that the PDF
-layer consumes are produced on demand by `dggen.serialize`, exposed here as read-only properties
-so the rest of the app (and the tests) can keep using `character.d` / `character.e`.
+display formatting. The sheet's field dicts are produced from it by `dggen.serialize`
+(`to_front_fields` / `to_back_fields`); the dependency points that way, never from here.
 
 Rule steps live in `dggen.rules.*` as functions that take and mutate a `Character` (via its
 `.rng`); this class holds the shared state and the small helpers (`distinguishing`,
@@ -18,8 +17,9 @@ from datetime import date, datetime
 from textwrap import wrap
 from typing import TYPE_CHECKING
 
-from dggen import constants, serialize
+from dggen import constants
 from dggen.constants import MONTHS
+from dggen.options import GenerationOptions
 from dggen.rules import education, employer, equipment, skills, stats, veterancy
 from dggen.text import age_on, format_name
 
@@ -27,7 +27,6 @@ if TYPE_CHECKING:
     from dggen.equipped import EquippedWeapon
     from dggen.models import Data, Profession
     from dggen.rng import Rng
-    from dggen.serialize import FieldValue
 
 logger = logging.getLogger("dggen")
 
@@ -91,81 +90,51 @@ class Character:
         rng: Rng,
         sex: str,
         profession: Profession,
-        label_override: str | None = None,
-        employer_override: str | None = None,
-        name_override: str | None = None,
-        education_override: str | None = None,
-        min_age: int = 24,
-        max_age: int = 55,
-        birth_year: int | None = None,
-        birthdate: date | None = None,
-        nationality: str | None = None,
-        veterancy_enabled: bool = False,
-        damaged: bool = True,
-        auto_education: bool = True,
-        auto_employer: bool = True,
+        options: GenerationOptions | None = None,
     ) -> Character:
+        options = options or GenerationOptions()
         char = cls(data, rng, sex, profession)
-        char.generate_demographics(
-            label_override,
-            employer_override,
-            name_override,
-            education_override,
-            min_age,
-            max_age,
-            birth_year,
-            birthdate,
-            nationality,
-        )
-        if auto_employer:
+        char.generate_demographics(options)
+        if options.auto_employer:
             employer.generate_employer(char, data.employer)
         stats.generate_stats(char)
         skills.generate_skills(char)
-        if auto_education:
+        if options.auto_education:
             education.generate_education(char, data.education)
-        if veterancy_enabled:
-            veterancy.apply_veterancy(char, damaged)
+        if options.veterancy_enabled:
+            veterancy.apply_veterancy(char, options.damaged)
         stats.generate_derived_attributes(char)
         return char
 
-    def generate_demographics(
-        self,
-        label_override: str | None,
-        employer_override: str | None,
-        name_override: str | None,
-        education_override: str | None,
-        min_age: int,
-        max_age: int,
-        birth_year: int | None,
-        birthdate: date | None,
-        nationality: str | None,
-    ) -> None:
-        if name_override:
-            self.name = format_name(name_override)
+    def generate_demographics(self, options: GenerationOptions) -> None:
+        if options.name_override:
+            self.name = format_name(options.name_override)
         elif self.sex == "male":
             self.name = self.data.family_names().upper() + ", " + self.data.male_given_names()
         else:
             self.name = self.data.family_names().upper() + ", " + self.data.female_given_names()
-        self.profession_label = label_override or self.profession.label
-        self.employer = employer_override or ", ".join(
+        self.profession_label = options.label_override or self.profession.label
+        self.employer = options.employer_override or ", ".join(
             e for e in [self.profession.employer, self.profession.division] if e
         )
-        self.education = education_override
+        self.education = options.education_override
         self.town = self.data.towns()
-        self.nationality = (f"({nationality}) " if nationality else "") + self.town
-        if birthdate:
-            self.age = age_on(birthdate, datetime.now().date())
-            self.birth_month_abbrev = MONTHS[birthdate.month - 1]
-            self.birth_day = birthdate.day
-        elif birth_year:
+        self.nationality = (f"({options.nationality}) " if options.nationality else "") + self.town
+        if options.birthdate:
+            self.age = age_on(options.birthdate, datetime.now().date())
+            self.birth_month_abbrev = MONTHS[options.birthdate.month - 1]
+            self.birth_day = options.birthdate.day
+        elif options.birth_year:
             self.birth_month_abbrev = self.rng.choice(MONTHS)
             self.birth_day = self.rng.randint(1, 28)
             # The age has to agree with the birthday just drawn: whether it has passed this year
             # decides between `this year - birth_year` and one less.
-            birthday = date(birth_year, MONTHS.index(self.birth_month_abbrev) + 1, self.birth_day)
+            birthday = date(
+                options.birth_year, MONTHS.index(self.birth_month_abbrev) + 1, self.birth_day
+            )
             self.age = age_on(birthday, datetime.now().date())
         else:
-            self.age = self.rng.randint(min_age, max_age)
+            self.age = self.rng.randint(options.min_age, options.max_age)
             self.birth_month_abbrev = self.rng.choice(MONTHS)
             self.birth_day = self.rng.randint(1, 28)
 
@@ -196,16 +165,6 @@ class Character:
         if len(notes) > MAX_NOTE_LINES:
             logger.warning("Too many footnotes - truncated.")
         self.note_lines = notes[:MAX_NOTE_LINES]
-
-    @property
-    def d(self) -> dict[str, FieldValue]:
-        """Front-page field dict, produced from structured state on demand."""
-        return serialize.to_front_fields(self)
-
-    @property
-    def e(self) -> dict[str, FieldValue]:
-        """Back / equipment-page field dict, produced from structured state on demand."""
-        return serialize.to_back_fields(self)
 
     def __str__(self) -> str:
         return ", ".join(

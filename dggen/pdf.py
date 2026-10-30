@@ -17,7 +17,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 
 from dggen import config
-from dggen.text import generate_label, shrink_to_fit
+from dggen.text import shrink_to_fit
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -300,7 +300,7 @@ class SheetWriter:
         pagenum = 4  # cover, inside cover and this TOC page come first
         rows = 0
         for row, profession in enumerate(professions):
-            label = generate_label(profession)
+            label = profession.roster_label()
             chapter = f"{shorten(label, 37, placeholder=''):.<40}{pagenum:.>4}"
             self.c.drawString(150, top - self.line_drop(row), chapter)
             self.c.linkAbsolute(

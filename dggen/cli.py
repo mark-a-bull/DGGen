@@ -6,12 +6,10 @@ import argparse
 import json
 import logging
 import sys
-from datetime import datetime
-from itertools import cycle, islice
+from datetime import date, datetime
 from pathlib import Path
 
 from dggen import __version__, config
-from dggen.character import Character
 from dggen.data import (
     InvalidLocaleError,
     ProfessionNotFoundError,
@@ -20,12 +18,23 @@ from dggen.data import (
     load_data,
 )
 from dggen.logging_setup import init_logger
-from dggen.pdf import SheetWriter
+from dggen.options import DataSources, GenerationOptions
 from dggen.pools import PoolError
 from dggen.rng import Rng
-from dggen.text import TemplateError, format_details, generate_label, parse_date
+from dggen.roster import generate_roster
+from dggen.sinks import PdfSink, Sink, TextSink
+from dggen.text import TemplateError, parse_date
+from dggen.validate import DataError
 
 logger = logging.getLogger("dggen")
+
+
+def _date_argument(value: str) -> date:
+    """argparse `type=` for dates: text.parse_date, with its error turned into a usage error."""
+    try:
+        return parse_date(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from None
 
 
 def _positive_int(value: str) -> int:
@@ -39,8 +48,8 @@ def _positive_int(value: str) -> int:
     return number
 
 
-def get_options(argv: list[str] | None = None) -> argparse.Namespace:
-    """Parse options and arguments. `argv` defaults to sys.argv[1:] (override for testing)."""
+def build_parser() -> argparse.ArgumentParser:
+    """Describe the command line. Cross-flag rules are in `validate_options`, not here."""
     parser = argparse.ArgumentParser(description=config.DESCRIPTION)
     gen = parser.add_argument_group(
         title="Character generation",
@@ -138,7 +147,7 @@ def get_options(argv: list[str] | None = None) -> argparse.Namespace:
     gen.add_argument(
         "--birthdate",
         action="store",
-        type=parse_date,
+        type=_date_argument,
         help="Set exact birthdate for all generated characters, e.g. '1986-11-24' or "
         "'November 24, 1986'. Takes precedence over --birth-year.",
     )
@@ -271,7 +280,11 @@ def get_options(argv: list[str] | None = None) -> argparse.Namespace:
         help="Outside of Continental United States?",
     )
 
-    options = parser.parse_args(argv)
+    return parser
+
+
+def validate_options(options: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+    """Reject combinations that can't work, with a usage error (exit 2), before any generation."""
     if not options.pdf and not options.type:
         parser.error(
             "-t/--type is required unless --pdf is given (otherwise this would print every "
@@ -291,7 +304,50 @@ def get_options(argv: list[str] | None = None) -> argparse.Namespace:
     if options.pdf and not options.output.resolve().parent.is_dir():
         # Fail now, not after the whole roster has been generated.
         parser.error(f"-o/--output directory does not exist: {options.output.resolve().parent}")
+
+
+def get_options(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse and validate options. `argv` defaults to sys.argv[1:] (override for testing)."""
+    parser = build_parser()
+    options = parser.parse_args(argv)
+    validate_options(options, parser)
     return options
+
+
+def sources_from(options: argparse.Namespace) -> DataSources:
+    """The data locations named on the command line."""
+    return DataSources(
+        professions=options.professions,
+        equipment=options.equipment,
+        distinguishing_features=options.distinguishing_features,
+        education_data=options.education_data,
+        employer_data=options.employer_data,
+        male_given_names=options.male_given_names,
+        female_given_names=options.female_given_names,
+        surnames=options.surnames,
+        towns=options.towns,
+        names_locale=options.names,
+        seed=options.seed,
+    )
+
+
+def generation_from(options: argparse.Namespace) -> GenerationOptions:
+    """How each character should be generated, per the command line."""
+    return GenerationOptions(
+        label_override=options.label,
+        employer_override=options.employer,
+        name_override=options.name,
+        education_override=options.education,
+        min_age=options.min_age,
+        max_age=options.max_age,
+        birth_year=options.birth_year,
+        birthdate=options.birthdate,
+        nationality=options.nationality,
+        veterancy_enabled=options.veterancy,
+        damaged=options.damaged,
+        auto_education=options.auto_education,
+        auto_employer=options.auto_employer,
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -307,7 +363,7 @@ def main(argv: list[str] | None = None) -> int:
     rng = Rng(options.seed)
 
     try:
-        data = load_data(options, rng)
+        data = load_data(sources_from(options), rng)
         professions = (
             [find_profession(data.professions, options.type)]
             if options.type
@@ -316,6 +372,7 @@ def main(argv: list[str] | None = None) -> int:
     except (
         ProfessionNotFoundError,
         PoolError,
+        DataError,
         InvalidLocaleError,
         OSError,
         json.JSONDecodeError,
@@ -332,56 +389,42 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
 
-    writer = None
-    pages_per_sheet = 2 if options.equip else 1
+    sinks: list[Sink] = [TextSink()]
     if options.pdf:
-        writer = SheetWriter(options.output, pages_per_sheet=pages_per_sheet)
-        writer.add_cover(options.title, options.oconus)
-        if len(professions) > 1:
-            writer.generate_toc(professions, pages_per_sheet, options.count)
-
-    for profession in professions:
-        if writer:
-            writer.bookmark(generate_label(profession))
-        count = options.count or (profession.number_to_generate if options.pdf else 1)
-        for sex in islice(
-            cycle([options.sex] if options.sex else ["female", "male"]),
-            count,
-        ):
-            character = Character.generate(
-                data=data,
-                rng=rng,
-                sex=sex,
-                profession=profession,
-                label_override=options.label,
-                employer_override=options.employer,
-                name_override=options.name,
-                education_override=options.education,
-                min_age=options.min_age,
-                max_age=options.max_age,
-                birth_year=options.birth_year,
-                birthdate=options.birthdate,
-                nationality=options.nationality,
-                veterancy_enabled=options.veterancy,
-                damaged=options.damaged,
-                auto_education=options.auto_education,
-                auto_employer=options.auto_employer,
+        sinks.append(
+            PdfSink(
+                options.output,
+                title=options.title,
+                oconus=options.oconus,
+                equip=options.equip,
+                count=options.count,
             )
-            if options.equip:
-                character.equip(profession.equipment_kit)
-            character.print_footnotes()
+        )
+    for sink in sinks:
+        sink.begin(professions)
 
-            print(format_details(character))
-            print()
+    # Without --pdf this is a one-character preview; with it, each profession's own roster size.
+    count = options.count or (None if options.pdf else 1)
+    roster = generate_roster(
+        data,
+        rng,
+        professions,
+        generation_from(options),
+        count=count,
+        sex=options.sex,
+        equip=options.equip,
+    )
+    current = None
+    for profession, character in roster:
+        if profession is not current:
+            current = profession
+            for sink in sinks:
+                sink.start_profession(profession)
+        for sink in sinks:
+            sink.add(character)
 
-            if writer:
-                writer.add_page(character.d)
-                if pages_per_sheet >= 2:
-                    writer.add_page_2(character.e)
-
-    if writer:
-        writer.save_pdf()
-        logger.info("Wrote %s", options.output)
+    for sink in sinks:
+        sink.finish()
     return 0
 
 

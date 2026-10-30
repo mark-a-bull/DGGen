@@ -7,8 +7,9 @@ from dataclasses import replace
 import pytest
 
 from dggen import config
-from dggen.cli import get_options, main
+from dggen.cli import main
 from dggen.data import ProfessionNotFoundError, ambiguous_keys, find_profession, load_data
+from dggen.options import DataSources
 from dggen.rng import Rng
 
 
@@ -36,8 +37,8 @@ def test_unknown_profession_raises_with_valid_options_listed(data):
 @pytest.fixture
 def fbi_professions():
 
-    options = get_options(["--pdf", "--professions", str(config.DATA_DIR / "professions-fbi.json")])
-    return load_data(options, Rng(0)).professions
+    sources = DataSources(professions=config.DATA_DIR / "professions-fbi.json")
+    return load_data(sources, Rng(0)).professions
 
 
 class TestAmbiguousLabels:
@@ -76,3 +77,13 @@ class TestAmbiguousLabels:
         fbi = str(config.DATA_DIR / "professions-fbi.json")
         assert main(["-t", "nsb-agent", "--professions", fbi, "-c", "1", "--seed", "1"]) == 0
         assert "using" not in capsys.readouterr().err
+
+
+def test_data_files_are_read_as_utf8_whatever_the_platform_default_is(data):
+    """Reading with the platform default (cp1252 on Windows) turned the UTF-8 apostrophe in
+    "Driver's license scanner" into mojibake, so the same files loaded differently per OS."""
+    gear = [item.text for kit in data.kits.values() for item in kit.gear]
+    assert "Driver\u2019s license scanner" in gear
+    everything = " ".join(gear)
+    assert "\u00e2\u20ac" not in everything  # the cp1252 mojibake of a UTF-8 curly quote
+    assert "\ufffd" not in everything

@@ -8,6 +8,7 @@ import pytest
 
 from dggen.character import Character
 from dggen.rng import Rng
+from dggen.serialize import to_front_fields
 
 
 class TestGenerateEducation:
@@ -22,7 +23,7 @@ class TestGenerateEducation:
     def test_disabled_leaves_field_blank(self, make_character):
         char = make_character(profession="Anthropologist", auto_education=False)
         assert char.education is None
-        assert "education" not in char.d
+        assert "education" not in to_front_fields(char)
 
     def test_unknown_profession_label_falls_back_to_default(self, data):
         # A profession not present in education.json's "professions" map should still get a

@@ -175,3 +175,18 @@ class TestTemplatesAreValidatedWhenLoaded:
 
     def test_employer_option_accepts_city(self):
         assert EmployerOption.from_dict({"template": "{city} Police"}).template == "{city} Police"
+
+
+class TestProfessionRosterLabel:
+    def test_joins_label_employer_and_division_skipping_blanks(self):
+        base = {
+            "label": "Federal Agent",
+            "number_to_generate": 1,
+            "skills": {"fixed": {}},
+            "bonds": 0,
+        }
+        assert Profession.from_dict(base).roster_label() == "Federal Agent"
+        with_employer = Profession.from_dict({**base, "employer": "FBI"})
+        assert with_employer.roster_label() == "Federal Agent, FBI"
+        full = Profession.from_dict({**base, "employer": "FBI", "division": "CID"})
+        assert full.roster_label() == "Federal Agent, FBI, CID"

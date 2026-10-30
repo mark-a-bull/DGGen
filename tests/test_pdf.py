@@ -16,6 +16,7 @@ from reportlab.pdfbase import pdfmetrics
 from dggen import config
 from dggen.cli import main
 from dggen.pdf import SheetWriter
+from dggen.serialize import to_back_fields, to_front_fields
 from dggen.text import shrink_to_fit
 
 
@@ -32,7 +33,7 @@ def test_every_emitted_field_has_a_coordinate(make_character, data):
         )
         char.equip(char.profession.equipment_kit)
         char.print_footnotes()
-        emitted = set(char.d) | set(char.e)
+        emitted = set(to_front_fields(char)) | set(to_back_fields(char))
         assert emitted <= known, f"{profession}: missing coords for {sorted(emitted - known)}"
 
 

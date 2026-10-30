@@ -6,7 +6,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from dggen.cli import main
+from dggen.cli import build_parser, get_options, main, validate_options
 
 
 @pytest.mark.parametrize(
@@ -90,3 +90,40 @@ def test_a_bad_template_in_a_data_file_exits_2_instead_of_raising(tmp_path, flag
     path = tmp_path / "data.json"
     path.write_text(content, encoding="utf-8")
     assert main(["-t", "agent", flag, str(path)]) == 2
+
+
+class TestParsingIsSeparateFromValidation:
+    """The parser only describes the flags; the cross-flag rules live in `validate_options`."""
+
+    def test_the_parser_alone_accepts_a_combination_the_rules_reject(self):
+        options = build_parser().parse_args(["-a", "40", "-A", "30"])  # no -t, no --pdf, min > max
+        assert (options.min_age, options.max_age, options.type, options.pdf) == (
+            40,
+            30,
+            None,
+            False,
+        )
+
+    def test_validate_options_enforces_the_rules(self, capsys):
+        parser = build_parser()
+        options = parser.parse_args(["-a", "40", "-A", "30", "--pdf"])
+        with pytest.raises(SystemExit) as exc:
+            validate_options(options, parser)
+        assert exc.value.code == 2
+        assert "min-age" in capsys.readouterr().err
+
+    def test_validate_options_passes_a_valid_command_line(self):
+        parser = build_parser()
+        validate_options(parser.parse_args(["-t", "agent"]), parser)
+
+    def test_get_options_still_does_both(self):
+        with pytest.raises(SystemExit):
+            get_options(["-a", "40", "-A", "30", "--pdf"])
+        assert get_options(["-t", "agent"]).type == "agent"
+
+
+def test_an_unparseable_birthdate_is_a_usage_error(capsys):
+    with pytest.raises(SystemExit) as exc:
+        main(["-t", "agent", "--birthdate", "not a date"])
+    assert exc.value.code == 2
+    assert "Invalid date" in capsys.readouterr().err
