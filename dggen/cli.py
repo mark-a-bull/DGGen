@@ -40,8 +40,8 @@ def _positive_int(value: str) -> int:
     return number
 
 
-def get_options(argv: list[str] | None = None) -> argparse.Namespace:
-    """Parse options and arguments. `argv` defaults to sys.argv[1:] (override for testing)."""
+def build_parser() -> argparse.ArgumentParser:
+    """Describe the command line. Cross-flag rules are in `validate_options`, not here."""
     parser = argparse.ArgumentParser(description=config.DESCRIPTION)
     gen = parser.add_argument_group(
         title="Character generation",
@@ -272,7 +272,11 @@ def get_options(argv: list[str] | None = None) -> argparse.Namespace:
         help="Outside of Continental United States?",
     )
 
-    options = parser.parse_args(argv)
+    return parser
+
+
+def validate_options(options: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+    """Reject combinations that can't work, with a usage error (exit 2), before any generation."""
     if not options.pdf and not options.type:
         parser.error(
             "-t/--type is required unless --pdf is given (otherwise this would print every "
@@ -292,6 +296,13 @@ def get_options(argv: list[str] | None = None) -> argparse.Namespace:
     if options.pdf and not options.output.resolve().parent.is_dir():
         # Fail now, not after the whole roster has been generated.
         parser.error(f"-o/--output directory does not exist: {options.output.resolve().parent}")
+
+
+def get_options(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse and validate options. `argv` defaults to sys.argv[1:] (override for testing)."""
+    parser = build_parser()
+    options = parser.parse_args(argv)
+    validate_options(options, parser)
     return options
 
 
