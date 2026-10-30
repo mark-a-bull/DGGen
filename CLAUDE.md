@@ -188,6 +188,14 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
   distinguishing-feature lookups) must happen during generation, not in serialization, or a fixed seed stops
   reproducing — `serialize` must be a pure function of already-generated state.
 
+- **Load-time validation** (`validate.py`): `load_data` ends with `validate_data`, which checks every cross-reference the
+  JSON files make — pool ids, tier names, kit names, weapon types (including nested `one-of`/`both`), armour types,
+  the `_default` fallbacks and the `unarmed` weapon — and raises one `DataError` listing *all* the problems, so a typo
+  fails at startup (exit 2) rather than partway through a roster. A file with a missing key or bad JSON also raises
+  `DataError` naming the file. Data files are always read as UTF-8 (the platform default, cp1252 on Windows, used to
+  turn curly quotes into mojibake and made the same files load differently per OS). If you add a new kind of
+  cross-reference to the data, add its check here.
+
 - **Pool errors** (`pools.py`): `PoolError` is the base the CLI catches; `UnknownPoolError` means no such id/file and
   `InvalidPoolError` means the file is unusable (empty, non-integer/negative/all-zero weights, a row missing its weight, a
   third column — usually an unquoted comma —, or not UTF-8). All are raised when the file is read, i.e. at startup, with

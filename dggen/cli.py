@@ -24,6 +24,7 @@ from dggen.rng import Rng
 from dggen.roster import generate_roster
 from dggen.sinks import PdfSink, Sink, TextSink
 from dggen.text import TemplateError, parse_date
+from dggen.validate import DataError
 
 logger = logging.getLogger("dggen")
 
@@ -371,6 +372,7 @@ def main(argv: list[str] | None = None) -> int:
     except (
         ProfessionNotFoundError,
         PoolError,
+        DataError,
         InvalidLocaleError,
         OSError,
         json.JSONDecodeError,
