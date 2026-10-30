@@ -2,13 +2,25 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import date
+from itertools import pairwise
 
 import pytest
 
-from dggen.constants import PHYSICAL_STATS, STATS
+from dggen.character import Character
+from dggen.constants import DEFAULT_SKILLS, FOOTNOTE_MARKERS, MONTHS, PHYSICAL_STATS, STATS
+from dggen.models import KitGearEntry, WeaponRef
+from dggen.rng import Rng
+from dggen.rules.equipment import MAX_GEAR_LINES, MAX_WEAPONS
+from dggen.rules.skills import generate_bonus_skills
 from dggen.rules.stats import damage_bonus
-from dggen.rules.veterancy import skill_checks_at_age
+from dggen.rules.veterancy import (
+    skill_checks_at_age,
+    stat_losses_at_age,
+    veterancy_skill_boosts,
+)
+from dggen.text import age_on
 
 
 class TestDamageBonus:
@@ -30,7 +42,7 @@ class TestSkillChecksAtAge:
 
     def test_monotonic_decrease(self):
         values = [skill_checks_at_age(a) for a in range(25, 80)]
-        assert all(earlier >= later for earlier, later in zip(values, values[1:]))
+        assert all(earlier >= later for earlier, later in pairwise(values))
 
 
 class TestDerivedAttributes:
@@ -114,10 +126,6 @@ class TestEquipment:
         assert all(f"weapon{i}" not in char.e for i in range(7, 12))
 
     def test_overlong_gear_is_truncated_to_the_sheet_with_a_warning(self, make_character, caplog):
-        import logging
-
-        from dggen.models import KitGearEntry
-        from dggen.rules.equipment import MAX_GEAR_LINES
 
         char = make_character(profession="agent")
         kit = char.data.kits["agent"]
@@ -133,10 +141,6 @@ class TestEquipment:
         assert "Item 29" in caplog.text  # the warning names what was dropped
 
     def test_overfull_weapon_list_warns_with_names_not_reprs(self, make_character, caplog):
-        import logging
-
-        from dggen.models import WeaponRef
-        from dggen.rules.equipment import MAX_WEAPONS
 
         char = make_character(profession="agent")
         types = [t for t in char.data.weapons if t != "unarmed"][: MAX_WEAPONS + 2]
@@ -154,9 +158,6 @@ class TestBonusSkills:
     def test_bonus_skills_are_distinct_and_boosted_once(self, make_character, seed):
         """A profession-suggested bonus skill also appears in the shuffled ALL_BONUS tail; it
         must not be picked (and boosted +20) a second time."""
-        from dggen.constants import DEFAULT_SKILLS
-        from dggen.rng import Rng
-        from dggen.rules.skills import generate_bonus_skills
 
         char = make_character(profession="agent", seed=1)
         char.rng = Rng(seed)
@@ -175,7 +176,6 @@ class TestBonusSkills:
 
 class TestVeterancySkillChecks:
     def _veteran_candidate(self, make_character, picked):
-        from dggen.rng import Rng
 
         char = make_character(profession="agent", seed=1)
         char.age = 60  # plenty of experience checks
@@ -189,7 +189,6 @@ class TestVeterancySkillChecks:
     def test_unpicked_possible_skills_get_no_experience_checks(self, make_character):
         """Only skills the character actually has as professional skills earn experience; an
         optional skill that wasn't picked is just a default skill and must stay put."""
-        from dggen.rules.veterancy import veterancy_skill_boosts
 
         char = self._veteran_candidate(make_character, picked=[])
         before = dict(char.skills)
@@ -198,7 +197,6 @@ class TestVeterancySkillChecks:
             assert char.skills[skill] == before[skill], skill
 
     def test_picked_possible_skill_does_get_experience(self, make_character):
-        from dggen.rules.veterancy import veterancy_skill_boosts
 
         char = self._veteran_candidate(make_character, picked=["ride"])
         before = dict(char.skills)
@@ -220,10 +218,6 @@ class TestBirthYear:
     def test_age_agrees_with_the_birthday_shown_on_the_sheet(self, make_character, seed):
         """With only a birth year given the month/day are random; the age must be the true age
         for that exact birthday, not just `this year - birth year`."""
-        from datetime import date
-
-        from dggen.constants import MONTHS
-        from dggen.text import age_on
 
         char = make_character(profession="agent", seed=seed, birth_year=1986)
         birthday = date(1986, MONTHS.index(char.birth_month_abbrev) + 1, char.birth_day)
@@ -251,7 +245,6 @@ class TestKitsFitTheSheet:
     def test_every_bundled_kit_fits_the_weapon_slots(self, data):
         """A weapon the kit always grants but the sheet has no slot for is silently dropped, so
         it can never appear on any character - that is a data bug, not bad luck."""
-        from dggen.rules.equipment import MAX_WEAPONS
 
         too_big = {}
         for name, kit in data.kits.items():
@@ -282,9 +275,6 @@ class TestFootnotes:
     def test_running_out_of_markers_warns_instead_of_crashing(self, make_character, caplog):
         """A custom kit with more distinct notes than there are markers used to die with a bare
         StopIteration from inside a defaultdict factory."""
-        import logging
-
-        from dggen.constants import FOOTNOTE_MARKERS
 
         char = make_character(profession="agent", seed=1)
         with caplog.at_level(logging.WARNING, logger="dggen"):
@@ -298,7 +288,6 @@ class TestCharacterConstruction:
     def test_a_character_always_has_a_profession(self, make_character):
         """`profession` used to start as None and be filled in later; every rule step then had to
         assume it was set. It is now a constructor argument."""
-        from dggen.character import Character
 
         char = make_character(profession="agent", seed=1)
         fresh = Character(char.data, char.rng, "female", char.profession)
@@ -316,3 +305,15 @@ class TestSkillLabels:
         char = make_character(profession="engineer", seed=3)
         assert char.d["craft1label"] == "Electrician"
         assert char.d["craft1value"] == char.skills["craft1value"]
+
+
+class TestStatLossesAtAge:
+    @pytest.mark.parametrize(
+        ("age", "expected"),
+        [
+            (25, 0), (39, 0), (40, 1), (49, 1), (50, 2), (59, 2), (60, 4), (69, 4),
+            (70, 8), (79, 8), (80, 16), (89, 16), (90, 32), (120, 32),
+        ],
+    )  # fmt: skip
+    def test_loses_physical_points_by_decade(self, age, expected):
+        assert stat_losses_at_age(age) == expected

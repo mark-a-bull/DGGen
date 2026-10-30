@@ -2,12 +2,21 @@
 
 from __future__ import annotations
 
+import io
+import json
+import logging
 import re
+import sys
 
 import pytest
+from pypdf import PdfReader
+from pypdf.generic import Destination
+from reportlab.pdfbase import pdfmetrics
 
+from dggen import config
 from dggen.cli import main
 from dggen.pdf import SheetWriter
+from dggen.text import shrink_to_fit
 
 
 def test_every_emitted_field_has_a_coordinate(make_character, data):
@@ -53,7 +62,7 @@ def test_cli_generates_valid_pdf(tmp_path):
     assert out.read_bytes().startswith(b"%PDF")
 
 
-def test_cli_rejects_unknown_profession(tmp_path, caplog):
+def test_cli_rejects_unknown_profession(tmp_path):
     rc = main(["-t", "Nonexistent Job", "-o", str(tmp_path / "x.pdf")])
     assert rc == 2
 
@@ -70,7 +79,7 @@ def _toc_rows(reader):
     """(text, y) for each dotted-leader row drawn on the TOC page (page 3, after the covers)."""
     rows = []
 
-    def visit(text, cm, tm, font_dict, font_size):
+    def visit(text, _cm, tm, _font_dict, _font_size):
         if ".." in text:
             rows.append((text.strip(), tm[5]))
 
@@ -82,8 +91,6 @@ def _toc_rows(reader):
 def test_toc_page_numbers_match_the_real_bookmarks(tmp_path, extra):
     """Every TOC row's printed page must be the page its bookmark really lands on - including
     when -c overrides the per-profession roster size, and for the blank back-page row."""
-    from pypdf import PdfReader
-    from pypdf.generic import Destination
 
     out = tmp_path / "roster.pdf"
     assert main(["--seed", "1", "-c", "2", "--pdf", "-o", str(out), *extra]) == 0
@@ -98,7 +105,7 @@ def test_toc_page_numbers_match_the_real_bookmarks(tmp_path, extra):
         if entry.title != "Table of Contents":
             bookmarks.append((entry.title, page_index + 1))
     assert len(rows) == len(bookmarks)
-    for (text, _y), (title, page) in zip(rows, bookmarks):
+    for (text, _y), (title, page) in zip(rows, bookmarks, strict=True):
         trailing = re.search(r"(\d+)$", text)
         assert trailing, f"no page number at the end of {text!r}"
         printed = int(trailing.group(1))
@@ -106,7 +113,6 @@ def test_toc_page_numbers_match_the_real_bookmarks(tmp_path, extra):
 
 
 def test_toc_blank_back_page_row_is_on_the_page(tmp_path):
-    from pypdf import PdfReader
 
     out = tmp_path / "roster.pdf"
     assert main(["--seed", "1", "-c", "1", "-u", "--pdf", "-o", str(out)]) == 0
@@ -122,8 +128,6 @@ def test_unencodable_stdout_does_not_abort_generation(tmp_path, monkeypatch):
     """The text summary is printed before the sheet is drawn. A legacy console codepage (e.g.
     cp1252 when output is redirected on Windows) can't encode non-Latin names (--names ru_RU), and
     that must degrade the console text, not kill the run before the PDF is written."""
-    import io
-    import sys
 
     stdout = io.TextIOWrapper(io.BytesIO(), encoding="cp1252", errors="strict")
     monkeypatch.setattr(sys, "stdout", stdout)
@@ -149,10 +153,6 @@ def test_unencodable_stdout_does_not_abort_generation(tmp_path, monkeypatch):
 
 def test_every_weapon_name_fits_its_box_at_a_legible_size(tmp_path):
     """Weapon names are drawn in full and shrunk to fit the name column (not truncated)."""
-    import json
-
-    from dggen import config
-    from dggen.text import shrink_to_fit
 
     writer = SheetWriter(tmp_path / "x.pdf")
     weapons = json.loads((config.DATA_DIR / "equipment.json").read_text("utf-8"))["weapons"]
@@ -176,7 +176,6 @@ def test_every_weapon_name_fits_its_box_at_a_legible_size(tmp_path):
 def test_cover_colours_are_valid_pdf_colour_operands(tmp_path):
     """PDF colour components are 0-1. The cover used (255, 255, 255), which only looks white
     because viewers happen to clamp out-of-range values."""
-    from pypdf import PdfReader
 
     out = tmp_path / "x.pdf"
     assert main(["-t", "agent", "-c", "1", "--seed", "1", "--pdf", "-o", str(out)]) == 0
@@ -196,10 +195,6 @@ def test_cover_colours_are_valid_pdf_colour_operands(tmp_path):
 def test_long_name_profession_and_nationality_stay_inside_their_boxes(tmp_path):
     """--name, --label and -n take arbitrary text; it must shrink to fit its box on the sheet
     rather than run across the neighbouring box or off the page."""
-    from pypdf import PdfReader
-    from reportlab.pdfbase import pdfmetrics
-
-    from dggen import config
 
     long = "Montgomery-Featherstonehaugh " * 4
     out = tmp_path / "x.pdf"
@@ -226,7 +221,7 @@ def test_long_name_profession_and_nationality_stay_inside_their_boxes(tmp_path):
 
     drawn = []
 
-    def visit(text, cm, tm, font_dict, font_size):
+    def visit(text, _cm, tm, _font_dict, font_size):
         if text.strip():
             drawn.append((text, tm[4], tm[5], font_size))
 
@@ -243,3 +238,12 @@ def test_long_name_profession_and_nationality_stay_inside_their_boxes(tmp_path):
     for key, (right, limit, size) in found.items():
         assert right <= limit, f"text at {key} ends at {right:.0f}, box ends at {limit}"
         assert size >= 6
+
+
+def test_unknown_field_is_logged_without_a_traceback(tmp_path, caplog):
+    """An unmapped field name is an expected, recoverable condition: say so once, no stack trace."""
+    writer = SheetWriter(tmp_path / "x.pdf")
+    with caplog.at_level(logging.ERROR, logger="dggen"):
+        writer.fill_field("no-such-field", 1)
+    [record] = [r for r in caplog.records if "no-such-field" in r.getMessage()]
+    assert record.exc_info is None

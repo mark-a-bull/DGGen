@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from dggen.pools import InvalidPool, PoolError, Pools, UnknownPool
+from dggen.pools import InvalidPoolError, PoolError, Pools, UnknownPoolError
 from dggen.rng import Rng
 
 
@@ -70,7 +70,7 @@ class TestChoice:
 class TestUnknownPool:
     def test_unregistered_id_raises_with_available_ids_listed(self, pools_root):
         pools = Pools(pools_root)
-        with pytest.raises(UnknownPool) as exc:
+        with pytest.raises(UnknownPoolError) as exc:
             pools.values("nonexistent/pool")
         message = str(exc.value)
         assert "nonexistent/pool" in message
@@ -78,7 +78,7 @@ class TestUnknownPool:
 
     def test_validate_raises_without_returning_a_value(self, pools_root):
         pools = Pools(pools_root)
-        with pytest.raises(UnknownPool):
+        with pytest.raises(UnknownPoolError):
             pools.validate("nonexistent/pool")
         pools.validate("names/male-given")  # does not raise
 
@@ -92,7 +92,7 @@ class TestExternalFileFallback:
 
     def test_nonexistent_path_still_raises(self, pools_root):
         pools = Pools(pools_root)
-        with pytest.raises(UnknownPool):
+        with pytest.raises(UnknownPoolError):
             pools.values("no/such/file.txt")
 
 
@@ -130,24 +130,24 @@ class TestMalformedFiles:
         fragment,
     ):
         pools = self._pool(tmp_path, name, content)
-        with pytest.raises(InvalidPool) as exc:
+        with pytest.raises(InvalidPoolError) as exc:
             pools.validate(str(tmp_path / name))
         assert name in str(exc.value)
         assert fragment in str(exc.value)
 
     def test_non_utf8_file_raises_invalid_pool(self, tmp_path):
         pools = self._pool(tmp_path, "latin.txt", "caf\xe9\n".encode("latin-1"), binary=True)
-        with pytest.raises(InvalidPool, match="UTF-8"):
+        with pytest.raises(InvalidPoolError, match="UTF-8"):
             pools.validate(str(tmp_path / "latin.txt"))
 
     def test_bad_bundled_style_file_fails_at_construction(self, tmp_path):
         (tmp_path / "broken.csv").write_text("town,pop\nA,lots\n", encoding="utf-8")
-        with pytest.raises(InvalidPool):
+        with pytest.raises(InvalidPoolError):
             Pools(tmp_path)
 
     def test_both_errors_share_a_base_class_the_cli_can_catch(self):
-        assert issubclass(InvalidPool, PoolError)
-        assert issubclass(UnknownPool, PoolError)
+        assert issubclass(InvalidPoolError, PoolError)
+        assert issubclass(UnknownPoolError, PoolError)
 
     def test_utf8_bom_is_not_part_of_the_first_value(self, tmp_path):
         path = tmp_path / "bom.txt"

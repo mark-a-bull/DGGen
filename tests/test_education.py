@@ -6,6 +6,9 @@ from datetime import datetime
 
 import pytest
 
+from dggen.character import Character
+from dggen.rng import Rng
+
 
 class TestGenerateEducation:
     def test_default_generates_education(self, make_character):
@@ -21,11 +24,9 @@ class TestGenerateEducation:
         assert char.education is None
         assert "education" not in char.d
 
-    def test_unknown_profession_label_falls_back_to_default(self, make_character, data):
+    def test_unknown_profession_label_falls_back_to_default(self, data):
         # A profession not present in education.json's "professions" map should still get a
         # plausible bio via the "_default" entry, not crash.
-        from dggen.character import Character
-        from dggen.rng import Rng
 
         rng = Rng(3)
         prof = data.professions["agent"]
@@ -35,8 +36,8 @@ class TestGenerateEducation:
         assert char.education
 
     def test_too_young_for_any_tier_leaves_field_blank(self, make_character):
-        # dggen/data/education.json's lowest grad_age across all tiers is 18 (highschool). An age below
-        # that has no eligible tier for any profession.
+        # dggen/data/education.json's lowest grad_age across all tiers is 18 (highschool). An age
+        # below that has no eligible tier for any profession.
         char = make_character(profession="Anthropologist", min_age=10, max_age=10)
         assert char.education is None
 

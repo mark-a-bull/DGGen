@@ -15,11 +15,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("dggen")
 
+# Experience starts accruing the year the agent turns 25 (AH p.38).
+VETERANCY_START_AGE = 25
+
 
 def skill_checks_at_age(
     age: int,
     earned_at_start: int = 4,
-    start_age: int = 25,
+    start_age: int = VETERANCY_START_AGE,
     halve_rate: int = 10,
 ) -> float:
     """Skill checks earned in the year the agent turns `age`; halves every `halve_rate` years."""
@@ -45,7 +48,9 @@ def veterancy_skill_boosts(char: Character) -> None:
             list(char.profession.skills.fixed.keys()) + char.picked_skills + char.bonus_skills,
         ),
     )
-    skill_checks = floor(sum(skill_checks_at_age(y) for y in range(25, char.age + 1)))
+    skill_checks = floor(
+        sum(skill_checks_at_age(y) for y in range(VETERANCY_START_AGE, char.age + 1)),
+    )
     for skill in skills_to_check:
         if char.skills.get(skill, 0) > 0:
             original = char.skills[skill]
@@ -64,20 +69,15 @@ def veterancy_skill_boosts(char: Character) -> None:
             )
 
 
+def stat_losses_at_age(age: int) -> int:
+    """Physical stat points lost to age: 1 from 40, then doubling each decade, capped at 32."""
+    if age < 40:
+        return 0
+    return 1 << min((age - 40) // 10, 5)
+
+
 def veterancy_stat_losses(char: Character) -> None:
-    losses = 0
-    if 40 <= char.age <= 49:
-        losses = 1
-    elif 50 <= char.age <= 59:
-        losses = 2
-    elif 60 <= char.age <= 69:
-        losses = 4
-    elif 70 <= char.age <= 79:
-        losses = 8
-    elif 80 <= char.age <= 89:
-        losses = 16
-    elif char.age >= 90:
-        losses = 32
+    losses = stat_losses_at_age(char.age)
     while losses and not all(char.stats[stat] <= 1 for stat in PHYSICAL_STATS):
         target = char.rng.choice(PHYSICAL_STATS)
         if char.stats[target] > 1:

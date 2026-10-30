@@ -33,11 +33,11 @@ class PoolError(Exception):
     """Base for everything that can be wrong with a pool; the CLI catches this one."""
 
 
-class InvalidPool(PoolError):
+class InvalidPoolError(PoolError):
     """Raised when a pool file exists but its content is unusable (empty, a bad weight, ...)."""
 
 
-class UnknownPool(PoolError):
+class UnknownPoolError(PoolError):
     """Raised when a pool id/path matches neither a discovered pool nor an existing file."""
 
     def __init__(self, ref: str, available_ids: list[str]) -> None:
@@ -50,7 +50,6 @@ class UnknownPool(PoolError):
 
 class Pools:
     def __init__(self, root: Path) -> None:
-        self._root = root
         self._cache: dict[str, tuple[list[str], list[int] | None]] = {}
         if root.is_dir():
             for path in sorted(root.rglob("*")):
@@ -69,10 +68,10 @@ class Pools:
             resolved = _read_pool_file(path)
             self._cache[ref] = resolved  # cache ad hoc external files too
             return resolved
-        raise UnknownPool(ref, self.ids())
+        raise UnknownPoolError(ref, self.ids())
 
     def validate(self, ref: str) -> None:
-        """Raise UnknownPool immediately if `ref` won't resolve, rather than waiting until the
+        """Raise UnknownPoolError immediately if `ref` won't resolve, rather than waiting until the
         first (possibly deep into generation) `choice()`/`values()` call that needs it."""
         self._resolve(ref)
 
@@ -97,11 +96,11 @@ def _read_pool_file(path: Path) -> tuple[list[str], list[int] | None]:
         else:
             values, weights = _read_txt_pool(path), None
     except UnicodeDecodeError as exc:
-        raise InvalidPool(f"{path}: not valid UTF-8 text ({exc.reason})") from exc
+        raise InvalidPoolError(f"{path}: not valid UTF-8 text ({exc.reason})") from exc
     if not values:
-        raise InvalidPool(f"{path}: the pool has no values")
+        raise InvalidPoolError(f"{path}: the pool has no values")
     if weights is not None and not any(weights):
-        raise InvalidPool(f"{path}: the weights are all zero, so nothing could ever be chosen")
+        raise InvalidPoolError(f"{path}: the weights are all zero, so nothing could ever be chosen")
     return values, weights
 
 
@@ -120,19 +119,19 @@ def _read_csv_pool(path: Path) -> tuple[list[str], list[int] | None]:
     weights = []
     for n, row in numbered:
         if len(row) == 1:
-            raise InvalidPool(f"{path}, line {n}: {row[0]!r} is missing a weight")
+            raise InvalidPoolError(f"{path}, line {n}: {row[0]!r} is missing a weight")
         if len(row) > 2:
-            raise InvalidPool(
+            raise InvalidPoolError(
                 f"{path}, line {n}: more than 2 columns ({row!r}); is a comma inside a value "
                 "that needs quoting?",
             )
         try:
             weight = int(row[1])
         except ValueError:
-            raise InvalidPool(
+            raise InvalidPoolError(
                 f"{path}, line {n}: weight {row[1]!r} is not a whole number",
             ) from None
         if weight < 0:
-            raise InvalidPool(f"{path}, line {n}: weight {weight} is negative")
+            raise InvalidPoolError(f"{path}, line {n}: weight {weight} is negative")
         weights.append(weight)
     return values, weights

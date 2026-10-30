@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from dggen.character import Character
 from dggen.cli import get_options
 from dggen.data import find_profession, load_data
 from dggen.rng import Rng
@@ -23,7 +24,6 @@ def make_character():
     A single `Rng(seed)` drives both data loading (name/town providers) and generation, exactly
     as the CLI does, so the same seed reproduces the whole character including its name.
     """
-    from dggen.character import Character
 
     def _make(profession="agent", seed=1234, sex="male", **kwargs):
         options = get_options(["--seed", str(seed), "--pdf"])

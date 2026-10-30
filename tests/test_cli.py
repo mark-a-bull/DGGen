@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date, timedelta
+
 import pytest
 
 from dggen.cli import main
@@ -55,7 +57,6 @@ def test_malformed_pool_file_exits_2_instead_of_raising(tmp_path, filename, cont
 
 @pytest.mark.parametrize("which", ["next-year", "this-year", "tomorrow"])
 def test_birth_date_must_be_in_the_past(which, capsys):
-    from datetime import date, timedelta
 
     today = date.today()
     flags = {

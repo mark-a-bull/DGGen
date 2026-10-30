@@ -301,7 +301,7 @@ class SheetWriter:
         rows = 0
         for row, profession in enumerate(professions):
             label = generate_label(profession)
-            chapter = "{:.<40}".format(shorten(label, 37, placeholder="")) + f"{pagenum:.>4}"
+            chapter = f"{shorten(label, 37, placeholder=''):.<40}{pagenum:.>4}"
             self.c.drawString(150, top - self.line_drop(row), chapter)
             self.c.linkAbsolute(
                 label,
@@ -312,7 +312,7 @@ class SheetWriter:
             rows = row + 1
         if pages_per_sheet == 1 and rows:
             # The blank back page is saved after the last character, i.e. at `pagenum`.
-            chapter = "{:.<40}".format("Blank Character Sheet Second Page") + f"{pagenum:.>4}"
+            chapter = f"{'Blank Character Sheet Second Page':.<40}{pagenum:.>4}"
             self.c.drawString(150, top - self.line_drop(rows), chapter)
             self.c.linkAbsolute(
                 "Back Page",
@@ -338,7 +338,7 @@ class SheetWriter:
         try:
             x, y, s = self.field_xys[field]
         except KeyError:
-            logger.exception("Unknown field %s", field)
+            logger.error("Unknown field %s", field)  # expected condition: no traceback needed
             return
         text = str(value)
         max_width = self.field_max_widths.get(field)
@@ -363,17 +363,17 @@ class SheetWriter:
         )
         self.c.showPage()
 
-    def add_page(self, d: dict[str, FieldValue]) -> None:
-        self.c.drawImage(str(config.SHEET_FRONT_IMAGE), 0, 0, config.PAGE_WIDTH, config.PAGE_HEIGHT)
-        for key in d:
-            self.fill_field(key, d[key])
+    def _add_sheet_page(self, image: Path, fields: dict[str, FieldValue]) -> None:
+        self.c.drawImage(str(image), 0, 0, config.PAGE_WIDTH, config.PAGE_HEIGHT)
+        for key, value in fields.items():
+            self.fill_field(key, value)
         self.c.showPage()
 
+    def add_page(self, d: dict[str, FieldValue]) -> None:
+        self._add_sheet_page(config.SHEET_FRONT_IMAGE, d)
+
     def add_page_2(self, e: dict[str, FieldValue]) -> None:
-        self.c.drawImage(str(config.SHEET_BACK_IMAGE), 0, 0, config.PAGE_WIDTH, config.PAGE_HEIGHT)
-        for key in e:
-            self.fill_field(key, e[key])
-        self.c.showPage()
+        self._add_sheet_page(config.SHEET_BACK_IMAGE, e)
 
     def save_pdf(self) -> None:
         if self.pages_per_sheet == 1:

@@ -6,7 +6,10 @@ from dataclasses import replace
 
 import pytest
 
-from dggen.data import ProfessionNotFound, ambiguous_keys, find_profession, load_data
+from dggen import config
+from dggen.cli import get_options, main
+from dggen.data import ProfessionNotFoundError, ambiguous_keys, find_profession, load_data
+from dggen.rng import Rng
 
 
 def test_lookup_by_key(data):
@@ -23,7 +26,7 @@ def test_lookup_is_case_insensitive(data):
 
 
 def test_unknown_profession_raises_with_valid_options_listed(data):
-    with pytest.raises(ProfessionNotFound) as exc:
+    with pytest.raises(ProfessionNotFoundError) as exc:
         find_profession(data.professions, "Not A Real Job")
     message = str(exc.value)
     assert "Not A Real Job" in message
@@ -32,9 +35,6 @@ def test_unknown_profession_raises_with_valid_options_listed(data):
 
 @pytest.fixture
 def fbi_professions():
-    from dggen import config
-    from dggen.cli import get_options
-    from dggen.rng import Rng
 
     options = get_options(["--pdf", "--professions", str(config.DATA_DIR / "professions-fbi.json")])
     return load_data(options, Rng(0)).professions
@@ -65,8 +65,6 @@ class TestAmbiguousLabels:
         assert find_profession(renamed, second) is renamed[second]
 
     def test_cli_says_which_profession_it_picked(self, capsys):
-        from dggen import config
-        from dggen.cli import main
 
         fbi = str(config.DATA_DIR / "professions-fbi.json")
         assert main(["-t", "Federal Agent", "--professions", fbi, "-c", "1", "--seed", "1"]) == 0
@@ -74,8 +72,6 @@ class TestAmbiguousLabels:
         assert "cid" in err and "nsb-agent" in err and "using cid" in err
 
     def test_cli_is_quiet_when_the_key_is_exact(self, capsys):
-        from dggen import config
-        from dggen.cli import main
 
         fbi = str(config.DATA_DIR / "professions-fbi.json")
         assert main(["-t", "nsb-agent", "--professions", fbi, "-c", "1", "--seed", "1"]) == 0

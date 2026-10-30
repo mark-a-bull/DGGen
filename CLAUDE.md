@@ -67,6 +67,16 @@ own for the full message. What the types encode, so you don't have to rediscover
 required at construction (never `None`); `char.skills` is all `int`, with sub-skill names split into
 `char.skill_labels`; sheet fields are `serialize.FieldValue` (`str | int`); `store_footnote` takes and returns `str`.
 
+### Style
+
+`ruff` handles linting and formatting (config in `pyproject.toml`: line length 100, rule set listed there; `ruff` is in
+the `[dev]` extra). `tests/test_style.py` runs `ruff check` and `ruff format --check`, so both fail the suite when
+violated. To fix: `ruff check --fix dggen tests generator.py` for the auto-fixable rules and
+`ruff format dggen tests generator.py` for layout. Line endings are pinned to LF by `.gitattributes` /
+`.editorconfig`, independent of each contributor's `core.autocrlf`. Imports go at the top of the module (including in
+tests); exception classes end in `Error`. `--min-age` defaults to 25 on the CLI but `Character.generate(min_age=...)`
+defaults to 24 — left alone because unifying them changes every seeded character and the golden snapshot with it.
+
 ### Verifying PDF output visually
 
 reportlab renders text at explicit `(x, y)` point coordinates onto a background JPG — you can't judge placement from
@@ -89,7 +99,7 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
 
 - **Data** (`models.py`, `data.py`, `pools.py`): `@dataclass` models with `from_dict` classmethods, loaded by
   `load_data(options, rng)` into a `Data` object. `find_profession` resolves `-t/--type` by data key or display
-  label (case-insensitive) and raises `ProfessionNotFound` (the CLI turns that into exit code 2 — library code
+  label (case-insensitive) and raises `ProfessionNotFoundError` (the CLI turns that into exit code 2 — library code
   raises, only the CLI exits). `from __future__ import annotations` in `models.py` is load-bearing: several
   `from_dict` methods return-annotate their own class, which would `NameError` under eager annotation evaluation.
 
@@ -163,8 +173,8 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
   distinguishing-feature lookups) must happen during generation, not in serialization, or a fixed seed stops
   reproducing — `serialize` must be a pure function of already-generated state.
 
-- **Pool errors** (`pools.py`): `PoolError` is the base the CLI catches; `UnknownPool` means no such id/file and
-  `InvalidPool` means the file is unusable (empty, non-integer/negative/all-zero weights, a row missing its weight, a
+- **Pool errors** (`pools.py`): `PoolError` is the base the CLI catches; `UnknownPoolError` means no such id/file and
+  `InvalidPoolError` means the file is unusable (empty, non-integer/negative/all-zero weights, a row missing its weight, a
   third column — usually an unquoted comma —, or not UTF-8). All are raised when the file is read, i.e. at startup, with
   the file and line in the message. A UTF-8 BOM is tolerated.
 

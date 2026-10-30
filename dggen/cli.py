@@ -13,16 +13,16 @@ from pathlib import Path
 from dggen import __version__, config
 from dggen.character import Character
 from dggen.data import (
-    InvalidLocale,
-    ProfessionNotFound,
+    InvalidLocaleError,
+    ProfessionNotFoundError,
     ambiguous_keys,
     find_profession,
     load_data,
 )
+from dggen.logging_setup import init_logger
 from dggen.pdf import SheetWriter
 from dggen.pools import PoolError
 from dggen.rng import Rng
-from dggen.logging_setup import init_logger
 from dggen.text import format_details, generate_label, parse_date
 
 logger = logging.getLogger("dggen")
@@ -60,7 +60,6 @@ def get_options(argv: list[str] | None = None) -> argparse.Namespace:
     doc.add_argument(
         "--pdf",
         action="store_true",
-        default=False,
         help="Write a PDF (path set by -o/--output) in addition to printing character details. "
         "Without --pdf, -t/--type is required and defaults to generating one character; with "
         "--pdf, omitting -t generates every profession's full roster as before.",
@@ -101,7 +100,6 @@ def get_options(argv: list[str] | None = None) -> argparse.Namespace:
         "--no-employer",
         action="store_false",
         dest="auto_employer",
-        default=True,
         help="Don't auto-generate an employer for professions that don't already specify one; "
         "leave the field blank unless --employer is also given.",
     )
@@ -122,7 +120,6 @@ def get_options(argv: list[str] | None = None) -> argparse.Namespace:
         "--no-education",
         action="store_false",
         dest="auto_education",
-        default=True,
         help="Don't auto-generate education/occupational history; leave the field blank unless "
         "--education is also given.",
     )
@@ -159,7 +156,6 @@ def get_options(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_false",
         dest="equip",
         help="Don't generate equipment.",
-        default=True,
     )
 
     data.add_argument(
@@ -182,8 +178,8 @@ def get_options(argv: list[str] | None = None) -> argparse.Namespace:
         "--male-given-names",
         action="store",
         default=config.DEFAULT_MALE_NAMES,
-        help="Pool of male given names - a dggen/data/pools/ id (see dggen/data/pools/README.md), or a path "
-        "to your own file. Defaults to %(default)s",
+        help="Pool of male given names - a dggen/data/pools/ id (see "
+        "dggen/data/pools/README.md), or a path to your own file. Defaults to %(default)s",
     )
     data.add_argument(
         "--female-given-names",
@@ -196,15 +192,15 @@ def get_options(argv: list[str] | None = None) -> argparse.Namespace:
         "--surnames",
         action="store",
         default=config.DEFAULT_SURNAMES,
-        help="Pool of family names - a dggen/data/pools/ id, or a path to your own file. Defaults to "
-        "%(default)s",
+        help="Pool of family names - a dggen/data/pools/ id, or a path to your own file. "
+        "Defaults to %(default)s",
     )
     data.add_argument(
         "--towns",
         action="store",
         default=config.DEFAULT_TOWNS,
-        help="Pool of towns - a dggen/data/pools/ id, or a path to your own file. Use 'towns/uk' for "
-        "the bundled UK town list. Defaults to %(default)s",
+        help="Pool of towns - a dggen/data/pools/ id, or a path to your own file. Use "
+        "'towns/uk' for the bundled UK town list. Defaults to %(default)s",
     )
     data.add_argument(
         "--equipment",
@@ -261,23 +257,18 @@ def get_options(argv: list[str] | None = None) -> argparse.Namespace:
     gen.add_argument(
         "--veterancy",
         action="store_true",
-        dest="veterancy",
         help="Grant additional experience due to age.",
-        default=False,
     )
     gen.add_argument(
         "--no-damaged",
         action="store_false",
         dest="damaged",
         help="Don't generate damaged veterans.",
-        default=True,
     )
     doc.add_argument(
         "--oconus",
         action="store_true",
-        dest="oconus",
         help="Outside of Continental United States?",
-        default=False,
     )
 
     options = parser.parse_args(argv)
@@ -322,7 +313,13 @@ def main(argv: list[str] | None = None) -> int:
             if options.type
             else list(data.professions.values())
         )
-    except (ProfessionNotFound, PoolError, InvalidLocale, OSError, json.JSONDecodeError) as exc:
+    except (
+        ProfessionNotFoundError,
+        PoolError,
+        InvalidLocaleError,
+        OSError,
+        json.JSONDecodeError,
+    ) as exc:
         logger.error("%s", exc)
         return 2
 

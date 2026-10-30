@@ -28,7 +28,7 @@ def to_front_fields(char: Character) -> dict[str, FieldValue]:
     if char.education:
         d["education"] = char.education
     d["nationality"] = char.nationality
-    d["age"] = "%d    (%s %d)" % (char.age, char.birth_month_abbrev, char.birth_day)
+    d["age"] = f"{char.age}    ({char.birth_month_abbrev} {char.birth_day})"
 
     for stat, score in char.stats.items():
         d[stat] = score
@@ -41,7 +41,7 @@ def to_front_fields(char: Character) -> dict[str, FieldValue]:
     if char.current_sanity is not None:
         d["current_sanity"] = char.current_sanity
     d["breaking point"] = char.breaking_point
-    d["damage bonus"] = "DB=%d" % char.damage_bonus
+    d["damage bonus"] = f"DB={char.damage_bonus}"
 
     d.update(char.skills)
     d.update(char.skill_labels)

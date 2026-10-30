@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from dggen.rng import Rng
 
 
-class ProfessionNotFound(Exception):
+class ProfessionNotFoundError(Exception):
     """Raised when a requested profession key/label matches nothing. The CLI turns this into an
     error message and a non-zero exit; library callers can catch it."""
 
@@ -32,7 +32,7 @@ class ProfessionNotFound(Exception):
         self.requested = requested
 
 
-class InvalidLocale(Exception):
+class InvalidLocaleError(Exception):
     """Raised when `--names` is given a locale Faker doesn't provide."""
 
 
@@ -59,14 +59,15 @@ def ambiguous_keys(professions: dict[str, Profession], type_: str) -> list[str]:
 def find_profession(professions: dict[str, Profession], type_: str) -> Profession:
     """Resolve a profession by its data key (e.g. 'agent') or display label (e.g. 'Federal Agent'),
     case-insensitively; a key always beats a label. A label shared by several professions
-    resolves to the first (see `ambiguous_keys`). Raises ProfessionNotFound if nothing matches."""
+    resolves to the first (see `ambiguous_keys`). Raises ProfessionNotFoundError if nothing
+    matches."""
     key = _match_key(professions, type_)
     if key is not None:
         return professions[key]
     for profession in professions.values():
         if profession.label.lower() == type_.lower():
             return profession
-    raise ProfessionNotFound(type_, professions)
+    raise ProfessionNotFoundError(type_, professions)
 
 
 def load_data(options: Namespace, rng: Rng) -> Data:
@@ -76,7 +77,7 @@ def load_data(options: Namespace, rng: Rng) -> Data:
         try:
             faker = Faker(options.names)
         except AttributeError as exc:  # Faker's way of saying the locale doesn't exist
-            raise InvalidLocale(
+            raise InvalidLocaleError(
                 f"Unknown --names locale {options.names!r} (e.g. en_US, en_GB)"
             ) from exc
         if getattr(options, "seed", None) is not None:
