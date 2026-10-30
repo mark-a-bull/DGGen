@@ -13,6 +13,16 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from dggen.pools import Pools
+from dggen.text import fill_template
+
+# Placeholders each kind of template may use (see rules/education.py and rules/employer.py).
+EDUCATION_TEMPLATE_FIELDS = ("field", "institution", "year")
+EMPLOYER_TEMPLATE_FIELDS = ("city",)
+
+
+def check_template(template: str, fields: tuple[str, ...]) -> None:
+    """Raise `TemplateError` now if `template` is malformed or names an unknown placeholder."""
+    fill_template(template, **dict.fromkeys(fields, ""))
 
 
 @dataclass
@@ -189,6 +199,8 @@ class EducationTier:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> EducationTier:
+        for template in d["templates"].values():
+            check_template(template, EDUCATION_TEMPLATE_FIELDS)  # fail at load, not mid-roster
         return cls(
             grad_age=d["grad_age"],
             templates=d["templates"],
@@ -249,6 +261,8 @@ class EmployerOption:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> EmployerOption:
+        if d.get("template") is not None:
+            check_template(d["template"], EMPLOYER_TEMPLATE_FIELDS)
         return cls(
             weight=d.get("weight", 1),
             pool=d.get("pool"),

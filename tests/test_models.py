@@ -11,12 +11,15 @@ from dggen import models
 from dggen.models import (
     Damage,
     EducationData,
+    EducationTier,
     EmployerData,
+    EmployerOption,
     Kit,
     Profession,
     ProfessionSkills,
     Weapon,
 )
+from dggen.text import TemplateError
 
 
 def test_profession_skills_defaults():
@@ -136,3 +139,39 @@ def test_every_model_annotation_resolves_at_runtime():
     for obj in vars(models).values():
         if dataclasses.is_dataclass(obj):
             typing.get_type_hints(obj)  # raises NameError if an annotation can't be resolved
+
+
+class TestTemplatesAreValidatedWhenLoaded:
+    def test_education_tier_rejects_an_unknown_placeholder(self):
+        with pytest.raises(TemplateError, match="degree"):
+            EducationTier.from_dict(
+                {
+                    "grad_age": 22,
+                    "templates": {"default": "{degree}, {institution} {year}"},
+                    "institution_pool": "institutions/university",
+                },
+            )
+
+    def test_education_tier_accepts_the_documented_placeholders(self):
+        tier = EducationTier.from_dict(
+            {
+                "grad_age": 22,
+                "templates": {
+                    "science": "B.S. {field}, {institution} {year}",
+                    "arts": "B.A. {field}",
+                },
+                "institution_pool": "institutions/university",
+            },
+        )
+        assert tier.grad_age == 22
+
+    def test_employer_option_rejects_an_unknown_placeholder(self):
+        with pytest.raises(TemplateError, match="state"):
+            EmployerOption.from_dict({"template": "{state} Highway Patrol"})
+
+    def test_employer_option_rejects_format_string_tricks(self):
+        with pytest.raises(TemplateError):
+            EmployerOption.from_dict({"template": "{city.__class__}"})
+
+    def test_employer_option_accepts_city(self):
+        assert EmployerOption.from_dict({"template": "{city} Police"}).template == "{city} Police"

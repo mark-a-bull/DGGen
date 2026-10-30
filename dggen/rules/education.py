@@ -13,6 +13,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+from dggen.text import fill_template
+
 if TYPE_CHECKING:
     from dggen.character import Character
     from dggen.models import EducationData
@@ -56,4 +58,6 @@ def generate_education(char: Character, education_data: EducationData) -> None:
         variant = "default"
     template = tier.templates.get(variant) or next(iter(tier.templates.values()))
 
-    char.education = template.format(field=field, institution=institution, year=grad_year) + "."
+    char.education = (
+        fill_template(template, field=field, institution=institution, year=grad_year) + "."
+    )

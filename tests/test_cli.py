@@ -68,3 +68,25 @@ def test_birth_date_must_be_in_the_past(which, capsys):
         main(["-t", "agent", *flags])
     assert exc.value.code == 2
     assert "error:" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("flag", "content"),
+    [
+        (
+            "--employer-data",
+            '{"professions": {"_default": {"options": [{"template": "{nope} Corp"}]}}}',
+        ),
+        (
+            "--education-data",
+            '{"tier_defaults": {"highschool": {"grad_age": 18, "institution_pool": '
+            '"institutions/high-school", "templates": {"default": "{field.__class__}"}}}, '
+            '"professions": {}}',
+        ),
+    ],
+    ids=["employer-template", "education-template"],
+)
+def test_a_bad_template_in_a_data_file_exits_2_instead_of_raising(tmp_path, flag, content):
+    path = tmp_path / "data.json"
+    path.write_text(content, encoding="utf-8")
+    assert main(["-t", "agent", flag, str(path)]) == 2

@@ -23,7 +23,7 @@ from dggen.logging_setup import init_logger
 from dggen.pdf import SheetWriter
 from dggen.pools import PoolError
 from dggen.rng import Rng
-from dggen.text import format_details, generate_label, parse_date
+from dggen.text import TemplateError, format_details, generate_label, parse_date
 
 logger = logging.getLogger("dggen")
 
@@ -319,6 +319,7 @@ def main(argv: list[str] | None = None) -> int:
         InvalidLocaleError,
         OSError,
         json.JSONDecodeError,
+        TemplateError,
     ) as exc:
         logger.error("%s", exc)
         return 2

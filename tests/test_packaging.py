@@ -8,6 +8,7 @@ runs against an editable install, where that can never show up - hence building 
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import sys
@@ -71,3 +72,27 @@ def test_wheel_contains_every_runtime_asset(wheel_names):
 
 def test_wheel_leaves_out_dev_only_files(wheel_names):
     assert not [name for name in wheel_names if name.endswith(".pdf")]
+
+
+def _declared(path: str) -> list[str]:
+    """The requirement strings in a requirements.txt, or [project].dependencies in pyproject."""
+    text = (REPO / path).read_text(encoding="utf-8")
+    if path.endswith(".toml"):
+        block = re.search(r"^dependencies = \[(.*?)\]", text, re.DOTALL | re.MULTILINE)
+        assert block, "no [project] dependencies found"
+        code = "\n".join(
+            line for line in block.group(1).splitlines() if not line.lstrip().startswith("#")
+        )
+        return re.findall(r'"([^"]+)"', code)
+    return [line.strip() for line in text.splitlines() if line.strip() and line[0] != "#"]
+
+
+@pytest.mark.parametrize("path", ["pyproject.toml", "requirements.txt"])
+def test_pillow_is_floored_at_a_release_without_known_advisories(path):
+    """reportlab pulls Pillow in without a useful floor, so an old, vulnerable Pillow would satisfy
+    the declared dependencies. 13.0.0 fixes the 39 advisories open against 12.x, but needs Python
+    3.11+, so the floor carries a marker rather than blocking Python 3.10 installs outright."""
+    [requirement] = [r for r in _declared(path) if r.lower().startswith("pillow")]
+    assert re.fullmatch(
+        r"pillow>=13(\.\d+)*\s*;\s*python_version\s*>=\s*['\"]3\.11['\"]", requirement
+    )
