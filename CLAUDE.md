@@ -77,6 +77,21 @@ violated. To fix: `ruff check --fix dggen tests generator.py` for the auto-fixab
 tests); exception classes end in `Error`. `--min-age` defaults to 25 on the CLI but `Character.generate(min_age=...)`
 defaults to 24 — left alone because unifying them changes every seeded character and the golden snapshot with it.
 
+### Security notes
+
+- **Templates in data files** (`{city}` in `employers.json`, `{field}`/`{institution}`/`{year}` in `education.json`)
+  are filled by `text.fill_template`, never `str.format`: data files are swappable (`--employer-data`,
+  `--education-data`), and `str.format` would let a template reach attributes (`{city.__class__}`) or crash with a
+  bare `KeyError`. Only plain `{name}` placeholders (and `{{`/`}}`) are accepted; `EducationTier.from_dict` and
+  `EmployerOption.from_dict` validate every template when the file is loaded, so a bad one exits 2 at startup via
+  `TemplateError` instead of failing mid-roster. If you add a placeholder, add it to `EDUCATION_TEMPLATE_FIELDS` /
+  `EMPLOYER_TEMPLATE_FIELDS` in `models.py` and pass it from the rule module.
+- **Dependency floors** matter because reportlab only asks for `pillow>=9`: `pyproject.toml` floors Pillow at 13.0.0
+  (it needs Python 3.11+, hence the `python_version` marker; 3.10 gets the newest Pillow it can install) and the dev
+  extra floors `pypdf`. Check with `pip-audit` (install it somewhere throwaway; it isn't a project dependency):
+  `pip-audit -r requirements.txt`. `tests/test_packaging.py` fails if the Pillow floor is dropped from either
+  `pyproject.toml` or `requirements.txt`.
+
 ### Verifying PDF output visually
 
 reportlab renders text at explicit `(x, y)` point coordinates onto a background JPG — you can't judge placement from

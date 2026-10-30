@@ -7,7 +7,15 @@ from datetime import date
 
 import pytest
 
-from dggen.text import age_on, format_details, format_name, parse_date, shrink_to_fit
+from dggen.text import (
+    TemplateError,
+    age_on,
+    fill_template,
+    format_details,
+    format_name,
+    parse_date,
+    shrink_to_fit,
+)
 
 
 class TestFormatName:
@@ -165,3 +173,52 @@ class TestFormatDetails:
         text = format_details(char)
         assert "Employer:" not in text
         assert "Education:" not in text
+
+
+class TestFillTemplate:
+    """Templates come from data files (which `--employer-data`/`--education-data` let anyone
+    swap), so substitution must not behave like `str.format` (attribute access, indexing, format
+    specs) and a bad template must fail with a message, not a bare IndexError/KeyError."""
+
+    def test_substitutes_plain_placeholders(self):
+        assert fill_template("{city} Police Department", city="Salem") == "Salem Police Department"
+        assert fill_template("{a}-{b}-{a}", a="x", b="y") == "x-y-x"
+
+    def test_a_template_without_placeholders_is_returned_as_is(self):
+        assert fill_template("U.S. Navy") == "U.S. Navy"
+
+    def test_doubled_braces_are_literal_braces_as_in_str_format(self):
+        assert fill_template("{{city}} is {city}", city="Salem") == "{city} is Salem"
+
+    def test_substituted_values_are_not_reinterpreted(self):
+        assert fill_template("{city}", city="{field}") == "{field}"
+
+    def test_numbers_are_formatted_plainly(self):
+        assert fill_template("Class of {year}", year=1999) == "Class of 1999"
+
+    @pytest.mark.parametrize(
+        "template",
+        [
+            "{city.__class__}",  # attribute access
+            "{city.__init__.__globals__}",
+            "{0}",  # positional index
+            "{city[0]}",  # item access
+            "{year:04d}",  # format spec
+            "{city!r}",  # conversion
+            "{}",  # empty field
+            "oops {city",  # unbalanced
+            "oops city}",
+        ],
+    )
+    def test_anything_but_a_plain_name_is_rejected(self, template):
+        with pytest.raises(TemplateError, match="brace"):
+            fill_template(template, city="Salem", year=1999)
+
+    def test_unknown_placeholder_names_what_is_available(self):
+        with pytest.raises(TemplateError) as exc:
+            fill_template("{town} PD", city="Salem")
+        assert "town" in str(exc.value)
+        assert "city" in str(exc.value)
+
+    def test_template_error_is_a_value_error(self):
+        assert issubclass(TemplateError, ValueError)

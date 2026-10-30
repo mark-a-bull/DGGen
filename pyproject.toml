@@ -12,10 +12,13 @@ license = { file = "LICENSE.md" }
 dependencies = [
     "reportlab~=4.0",
     "faker~=40.23.0",
+    # reportlab requires Pillow but only "pillow>=9". 13.0.0 fixes the advisories open against
+    # 12.x; it needs Python 3.11+, so Python 3.10 keeps the newest Pillow it can install.
+    "pillow>=13.0.0; python_version >= '3.11'",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "pypdf>=4", "mypy>=1.10", "types-reportlab", "ruff>=0.6"]
+dev = ["pytest>=8", "pypdf>=6.21.2", "mypy>=1.10", "types-reportlab", "ruff>=0.6"]
 
 [project.scripts]
 dggen = "dggen.cli:main"

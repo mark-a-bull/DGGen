@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from dggen.text import fill_template
+
 if TYPE_CHECKING:
     from dggen.character import Character
     from dggen.models import EmployerData
@@ -32,6 +34,6 @@ def generate_employer(char: Character, employer_data: EmployerData) -> None:
         char.employer = char.data.pools.choice(option.pool, char.rng)
     elif option.template is not None:
         city = char.town.split(",")[0].strip()
-        char.employer = option.template.format(city=city)
+        char.employer = fill_template(option.template, city=city)
     else:
         char.employer = ""
