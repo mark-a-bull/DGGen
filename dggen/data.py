@@ -36,13 +36,35 @@ class InvalidLocale(Exception):
     """Raised when `--names` is given a locale Faker doesn't provide."""
 
 
+def _match_key(professions: dict[str, Profession], type_: str) -> str | None:
+    """The profession key `type_` names exactly (ignoring case), if any."""
+    if type_ in professions:
+        return type_
+    return next((key for key in professions if key.lower() == type_.lower()), None)
+
+
+def ambiguous_keys(professions: dict[str, Profession], type_: str) -> list[str]:
+    """Keys of every profession sharing the display label `type_`, if it names more than one.
+
+    Several keys in the variant files share one label ("Federal Agent" is `cid` and `nsb-agent`
+    in the FBI set), and a label can't say which was meant. Empty when `type_` is a key (which is
+    always exact) or matches at most one label.
+    """
+    if _match_key(professions, type_) is not None:
+        return []
+    keys = [key for key, p in professions.items() if p.label.lower() == type_.lower()]
+    return keys if len(keys) > 1 else []
+
+
 def find_profession(professions: dict[str, Profession], type_: str) -> Profession:
     """Resolve a profession by its data key (e.g. 'agent') or display label (e.g. 'Federal Agent'),
-    case-insensitively. Raises ProfessionNotFound if nothing matches."""
-    if type_ in professions:
-        return professions[type_]
-    for key, profession in professions.items():
-        if key.lower() == type_.lower() or profession.label.lower() == type_.lower():
+    case-insensitively; a key always beats a label. A label shared by several professions
+    resolves to the first (see `ambiguous_keys`). Raises ProfessionNotFound if nothing matches."""
+    key = _match_key(professions, type_)
+    if key is not None:
+        return professions[key]
+    for profession in professions.values():
+        if profession.label.lower() == type_.lower():
             return profession
     raise ProfessionNotFound(type_, professions)
 
@@ -67,18 +89,18 @@ def load_data(options: Namespace, rng: Rng) -> Data:
         pools.validate(options.female_given_names)
         pools.validate(options.surnames)
 
-        def male_given_names():
+        def male_given_names() -> str:
             return pools.choice(options.male_given_names, rng)
 
-        def female_given_names():
+        def female_given_names() -> str:
             return pools.choice(options.female_given_names, rng)
 
-        def family_names():
+        def family_names() -> str:
             return pools.choice(options.surnames, rng)
 
     pools.validate(options.towns)
 
-    def towns():
+    def towns() -> str:
         return pools.choice(options.towns, rng)
 
     with options.professions.open() as f:

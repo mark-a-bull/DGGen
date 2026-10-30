@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from dggen.pools import Pools, UnknownPool
+from dggen.pools import InvalidPool, PoolError, Pools, UnknownPool
 from dggen.rng import Rng
 
 
@@ -91,3 +91,74 @@ class TestExternalFileFallback:
         pools = Pools(pools_root)
         with pytest.raises(UnknownPool):
             pools.values("no/such/file.txt")
+
+
+class TestMalformedFiles:
+    """A bad pool file must fail up front with a message naming the file, not as a raw
+    IndexError/ValueError partway through generating a roster."""
+
+    @staticmethod
+    def _pool(tmp_path, name, content, *, binary=False):
+        path = tmp_path / name
+        if binary:
+            path.write_bytes(content)
+        else:
+            path.write_text(content, encoding="utf-8")
+        return Pools(tmp_path / "none")  # no discovered pools; we pass the file path instead
+
+    @pytest.mark.parametrize(
+        ("name", "content", "fragment"),
+        [
+            ("ragged.csv", "town,pop\nA,5\nB\n", "missing a weight"),
+            ("words.csv", "town,pop\nA,lots\n", "not a whole number"),
+            ("thousands.csv", "town,pop\nA,1,000\n", "more than 2 columns"),
+            ("negative.csv", "town,pop\nA,-3\n", "negative"),
+            ("allzero.csv", "town,pop\nA,0\nB,0\n", "weights are all zero"),
+            ("empty.txt", "", "no values"),
+            ("comments-only.txt", "# nothing here\n\n", "no values"),
+            ("header-only.csv", "town,pop\n", "no values"),
+        ],
+    )
+    def test_bad_content_raises_invalid_pool_naming_the_file(
+        self, tmp_path, name, content, fragment,
+    ):
+        pools = self._pool(tmp_path, name, content)
+        with pytest.raises(InvalidPool) as exc:
+            pools.validate(str(tmp_path / name))
+        assert name in str(exc.value)
+        assert fragment in str(exc.value)
+
+    def test_non_utf8_file_raises_invalid_pool(self, tmp_path):
+        pools = self._pool(tmp_path, "latin.txt", "caf\xe9\n".encode("latin-1"), binary=True)
+        with pytest.raises(InvalidPool, match="UTF-8"):
+            pools.validate(str(tmp_path / "latin.txt"))
+
+    def test_bad_bundled_style_file_fails_at_construction(self, tmp_path):
+        (tmp_path / "broken.csv").write_text("town,pop\nA,lots\n", encoding="utf-8")
+        with pytest.raises(InvalidPool):
+            Pools(tmp_path)
+
+    def test_both_errors_share_a_base_class_the_cli_can_catch(self):
+        assert issubclass(InvalidPool, PoolError)
+        assert issubclass(UnknownPool, PoolError)
+
+    def test_utf8_bom_is_not_part_of_the_first_value(self, tmp_path):
+        path = tmp_path / "bom.txt"
+        path.write_bytes(b"\xef\xbb\xbfAlpha\nBeta\n")
+        assert Pools(tmp_path / "none").values(str(path)) == ["Alpha", "Beta"]
+
+    def test_utf8_bom_csv(self, tmp_path):
+        path = tmp_path / "bom.csv"
+        path.write_bytes(b"\xef\xbb\xbftown,pop\nAlpha,2\n")
+        assert Pools(tmp_path / "none").values(str(path)) == ["Alpha"]
+
+    def test_indented_comment_line_is_still_a_comment(self, tmp_path):
+        path = tmp_path / "indented.txt"
+        path.write_text("Alpha\n   # a note\nBeta\n", encoding="utf-8")
+        assert Pools(tmp_path / "none").values(str(path)) == ["Alpha", "Beta"]
+
+    def test_zero_weight_rows_are_allowed_but_never_chosen(self, tmp_path):
+        path = tmp_path / "some-zero.csv"
+        path.write_text("town,pop\nNever,0\nAlways,5\n", encoding="utf-8")
+        pools = Pools(tmp_path / "none")
+        assert {pools.choice(str(path), Rng(seed)) for seed in range(30)} == {"Always"}

@@ -26,6 +26,34 @@ class TestFormatName:
     def test_empty_string(self):
         assert format_name("") == ""
 
+    @pytest.mark.parametrize(
+        ("given", "expected"),
+        [
+            ("  John Smith  ", "SMITH, John"),
+            ("John   Smith", "SMITH, John"),
+            ("SMITH,John", "SMITH, John"),
+            ("SMITH ,  John", "SMITH, John"),
+            ("  SMITH, John  ", "SMITH, John"),
+        ],
+        ids=["outer-space", "inner-space", "no-space-after-comma", "loose-comma", "padded-comma"],
+    )
+    def test_stray_whitespace_is_normalised(self, given, expected):
+        assert format_name(given) == expected
+
+    @pytest.mark.parametrize(
+        ("given", "expected"),
+        [
+            ("John Smith Jr.", "SMITH, John Jr."),
+            ("Dr. John Smith Jr.", "SMITH, Dr. John Jr."),
+            ("John Smith III", "SMITH, John III"),
+            ("John Smith, Jr.", "SMITH, John Jr."),
+            ("John Smith sr", "SMITH, John sr"),
+        ],
+    )
+    def test_generational_suffix_stays_with_the_given_name(self, given, expected):
+        """A suffix is not a surname: "John Smith Jr." must not become "JR., John Smith"."""
+        assert format_name(given) == expected
+
 
 class TestParseDate:
     @pytest.mark.parametrize(
@@ -100,7 +128,7 @@ class TestFormatDetails:
         score (craft1value: 40) in `skills`; the text view must show one "Craft (Electrician)"
         line, not a bogus "Craft1Label ... Electrician%" skill."""
         char = make_character(profession="engineer", seed=3)
-        assert char.skills["craft1label"] == "Electrician"  # guard: fixture really has labels
+        assert char.skill_labels["craft1label"] == "Electrician"  # guard: fixture has labels
         text = format_details(char)
         assert "Label" not in text
         assert "Electrician%" not in text

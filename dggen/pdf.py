@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from textwrap import shorten
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -24,13 +24,14 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from dggen.models import Profession
+    from dggen.serialize import FieldValue
 
 logger = logging.getLogger("dggen")
 
 
 class SheetWriter:
     # Location of form fields in points (1/72 inch); origin 0,0 is bottom-left. (x, y, font size)
-    field_xys = {
+    field_xys: ClassVar[dict[str, tuple[int, int, int]]] = {
         # Personal Data
         "name": (75, 693, 11),
         "profession": (343, 693, 11),
@@ -251,7 +252,21 @@ class SheetWriter:
 
     # Fields whose value must be shrunk (and, failing that, truncated) to fit within this many
     # points, since they sit in a single-line box rather than wrapping to a new page area.
-    field_max_widths = {"education": 260, "employer": 260}
+    # The personal-data boxes: name and employer end at x~340, profession and nationality at x~553.
+    field_max_widths: ClassVar[dict[str, float]] = {
+        "name": 260,
+        "employer": 260,
+        "profession": 205,
+        "nationality": 205,
+        "education": 260,
+    }
+    # Weapon names are drawn in full and shrunk to the gap before the "roll" column (minus a little
+    # air) rather than truncated, which made distinct weapons look identical.
+    for _slot in range(7):
+        field_max_widths[f"weapon{_slot}"] = (
+            field_xys[f"weapon{_slot}_roll"][0] - field_xys[f"weapon{_slot}"][0] - 4
+        )
+    del _slot
 
     def __init__(self, filename: Path, pages_per_sheet: int = 1) -> None:
         self.filename = filename
@@ -331,9 +346,9 @@ class SheetWriter:
             text, s = shrink_to_fit(text, s, max_width, self._measure)
         self.draw_string(x, y, s, text)
 
-    def add_cover(self, title: str, oconus: bool) -> None:
+    def add_cover(self, title: str | None, oconus: bool) -> None:
         self.c.drawImage(str(config.FRONT_COVER_IMAGE), 0, 0, config.PAGE_WIDTH, config.PAGE_HEIGHT)
-        self.c.setFillColorRGB(255, 255, 255)
+        self.c.setFillColorRGB(1, 1, 1)
         self.c.setFont(config.OCR_FONT, 24)
         now = datetime.now().strftime("%Y-%m-%dT%H:%MZ")
         if title:
@@ -346,13 +361,13 @@ class SheetWriter:
         self.c.drawImage(str(config.INSIDE_COVER_IMAGE), 0, 0, config.PAGE_WIDTH, config.PAGE_HEIGHT)
         self.c.showPage()
 
-    def add_page(self, d: dict[str, Any]) -> None:
+    def add_page(self, d: dict[str, FieldValue]) -> None:
         self.c.drawImage(str(config.SHEET_FRONT_IMAGE), 0, 0, config.PAGE_WIDTH, config.PAGE_HEIGHT)
         for key in d:
             self.fill_field(key, d[key])
         self.c.showPage()
 
-    def add_page_2(self, e: dict[str, Any]) -> None:
+    def add_page_2(self, e: dict[str, FieldValue]) -> None:
         self.c.drawImage(str(config.SHEET_BACK_IMAGE), 0, 0, config.PAGE_WIDTH, config.PAGE_HEIGHT)
         for key in e:
             self.fill_field(key, e[key])

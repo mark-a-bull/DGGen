@@ -29,7 +29,15 @@ if TYPE_CHECKING:
 _POOL_EXTENSIONS = (".txt", ".csv")
 
 
-class UnknownPool(Exception):
+class PoolError(Exception):
+    """Base for everything that can be wrong with a pool; the CLI catches this one."""
+
+
+class InvalidPool(PoolError):
+    """Raised when a pool file exists but its content is unusable (empty, a bad weight, ...)."""
+
+
+class UnknownPool(PoolError):
     """Raised when a pool id/path matches neither a discovered pool nor an existing file."""
 
     def __init__(self, ref: str, available_ids: list[str]) -> None:
@@ -81,20 +89,50 @@ class Pools:
 
 
 def _read_pool_file(path: Path) -> tuple[list[str], list[int] | None]:
-    if path.suffix == ".csv":
-        return _read_csv_pool(path)
-    return _read_txt_pool(path), None
+    try:
+        # utf-8-sig: spreadsheets and Notepad like to prepend a BOM, which would otherwise end
+        # up glued to the first value.
+        if path.suffix == ".csv":
+            values, weights = _read_csv_pool(path)
+        else:
+            values, weights = _read_txt_pool(path), None
+    except UnicodeDecodeError as exc:
+        raise InvalidPool(f"{path}: not valid UTF-8 text ({exc.reason})") from exc
+    if not values:
+        raise InvalidPool(f"{path}: the pool has no values")
+    if weights is not None and not any(weights):
+        raise InvalidPool(f"{path}: the weights are all zero, so nothing could ever be chosen")
+    return values, weights
 
 
 def _read_txt_pool(path: Path) -> list[str]:
-    lines = path.read_text(encoding="utf-8").splitlines()
-    return [line.strip() for line in lines if line.strip() and not line.startswith("#")]
+    lines = (line.strip() for line in path.read_text(encoding="utf-8-sig").splitlines())
+    return [line for line in lines if line and not line.startswith("#")]
 
 
 def _read_csv_pool(path: Path) -> tuple[list[str], list[int] | None]:
-    with path.open(encoding="utf-8", newline="") as f:
-        rows = [row for row in csv.reader(f) if row]
-    rows = rows[1:]  # header
-    values = [row[0] for row in rows]
-    weights = [int(row[1]) for row in rows] if rows and len(rows[0]) > 1 else None
+    with path.open(encoding="utf-8-sig", newline="") as f:
+        numbered = [(n, row) for n, row in enumerate(csv.reader(f), start=1) if row]
+    numbered = numbered[1:]  # header
+    values = [row[0].strip() for _, row in numbered]
+    if not numbered or all(len(row) == 1 for _, row in numbered):
+        return values, None
+    weights = []
+    for n, row in numbered:
+        if len(row) == 1:
+            raise InvalidPool(f"{path}, line {n}: {row[0]!r} is missing a weight")
+        if len(row) > 2:
+            raise InvalidPool(
+                f"{path}, line {n}: more than 2 columns ({row!r}); is a comma inside a value "
+                "that needs quoting?",
+            )
+        try:
+            weight = int(row[1])
+        except ValueError:
+            raise InvalidPool(
+                f"{path}, line {n}: weight {row[1]!r} is not a whole number",
+            ) from None
+        if weight < 0:
+            raise InvalidPool(f"{path}, line {n}: weight {weight} is negative")
+        weights.append(weight)
     return values, weights

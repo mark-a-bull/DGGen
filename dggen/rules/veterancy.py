@@ -47,7 +47,7 @@ def veterancy_skill_boosts(char: Character) -> None:
     )
     skill_checks = floor(sum(skill_checks_at_age(y) for y in range(25, char.age + 1)))
     for skill in skills_to_check:
-        if isinstance(char.skills.get(skill, 0), int) and char.skills.get(skill, 0) > 0:
+        if char.skills.get(skill, 0) > 0:
             original = char.skills[skill]
             for _ in range(skill_checks):
                 current = char.skills[skill]

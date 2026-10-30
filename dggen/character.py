@@ -14,10 +14,9 @@ Rule steps live in `dggen.rules.*` as functions that take and mutate a `Characte
 from __future__ import annotations
 
 import logging
-from collections import defaultdict
 from datetime import date, datetime
 from textwrap import wrap
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from dggen import constants, serialize
 from dggen.constants import MONTHS
@@ -27,6 +26,7 @@ from dggen.text import age_on, format_name
 if TYPE_CHECKING:
     from dggen.equipped import EquippedWeapon
     from dggen.models import Data, Profession
+    from dggen.serialize import FieldValue
     from dggen.rng import Rng
 
 logger = logging.getLogger("dggen")
@@ -35,11 +35,11 @@ MAX_NOTE_LINES = 12
 
 
 class Character:
-    def __init__(self, data: Data, rng: Rng, sex: str) -> None:
+    def __init__(self, data: Data, rng: Rng, sex: str, profession: Profession) -> None:
         self.data = data
         self.rng = rng
         self.sex = sex
-        self.profession: Profession | None = None
+        self.profession = profession
 
         # Demographics
         self.name = ""
@@ -63,7 +63,9 @@ class Character:
         self.damage_bonus = 0
 
         # Skills and bonds
-        self.skills: dict[str, Any] = {}
+        self.skills: dict[str, int] = {}
+        # Sub-skill names ("craft1label" -> "Electrician"), kept apart so `skills` is all numbers.
+        self.skill_labels: dict[str, str] = {}
         self.bonds: dict[int, int] = {}
         self.picked_skills: list[str] = []  # the profession's `possible` skills actually chosen
         self.bonus_skills: list[str] = []
@@ -79,7 +81,7 @@ class Character:
         self.weapons: list[EquippedWeapon] = []
         self.gear_lines: list[str] = []
         self.note_lines: list[str] = []
-        self.footnotes = defaultdict(iter(constants.FOOTNOTE_MARKERS).__next__)
+        self.footnotes: dict[str, str] = {}  # note text -> marker glyph
 
     @classmethod
     def generate(
@@ -103,8 +105,7 @@ class Character:
         auto_education: bool = True,
         auto_employer: bool = True,
     ) -> Character:
-        char = cls(data, rng, sex)
-        char.profession = profession
+        char = cls(data, rng, sex, profession)
         char.generate_demographics(
             label_override,
             employer_override,
@@ -157,9 +158,12 @@ class Character:
             self.birth_month_abbrev = MONTHS[birthdate.month - 1]
             self.birth_day = birthdate.day
         elif birth_year:
-            self.age = datetime.now().year - birth_year
             self.birth_month_abbrev = self.rng.choice(MONTHS)
             self.birth_day = self.rng.randint(1, 28)
+            # The age has to agree with the birthday just drawn: whether it has passed this year
+            # decides between `this year - birth_year` and one less.
+            birthday = date(birth_year, MONTHS.index(self.birth_month_abbrev) + 1, self.birth_day)
+            self.age = age_on(birthday, datetime.now().date())
         else:
             self.age = self.rng.randint(min_age, max_age)
             self.birth_month_abbrev = self.rng.choice(MONTHS)
@@ -171,9 +175,16 @@ class Character:
     def distinguishing(self, field: str, value: int) -> str:
         return self.rng.choice(self.data.distinguishing.get((field, value), [""]))
 
-    def store_footnote(self, note: str | None) -> str | None:
-        """Register a footnote and return its indicator glyph (or None for a blank note)."""
-        return self.footnotes[note] if note else None
+    def store_footnote(self, note: str) -> str:
+        """Register a footnote and return its indicator glyph (the same one for the same note)."""
+        if note not in self.footnotes:
+            markers = constants.FOOTNOTE_MARKERS
+            if len(self.footnotes) < len(markers):
+                self.footnotes[note] = markers[len(self.footnotes)]
+            else:
+                logger.warning("Out of footnote markers; %r shares %r", note, markers[-1])
+                self.footnotes[note] = markers[-1]
+        return self.footnotes[note]
 
     def print_footnotes(self) -> None:
         """Flush registered footnotes into wrapped note lines for the back page."""
@@ -187,12 +198,12 @@ class Character:
         self.note_lines = notes[:MAX_NOTE_LINES]
 
     @property
-    def d(self) -> dict[str, Any]:
+    def d(self) -> dict[str, FieldValue]:
         """Front-page field dict, produced from structured state on demand."""
         return serialize.to_front_fields(self)
 
     @property
-    def e(self) -> dict[str, Any]:
+    def e(self) -> dict[str, FieldValue]:
         """Back / equipment-page field dict, produced from structured state on demand."""
         return serialize.to_back_fields(self)
 

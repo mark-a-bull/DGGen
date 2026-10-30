@@ -19,7 +19,7 @@ def generate_skills(char: Character) -> None:
 
     # Professional skills - fixed.
     for skill, score in char.profession.skills.fixed.items():
-        char.skills[skill] = score
+        _set_skill(char, skill, score)
         logger.debug("%s, set fixed professional skill %s to %s", char, skill, score)
 
     # Professional skills - a random subset of the "possible" skills.
@@ -27,7 +27,7 @@ def generate_skills(char: Character) -> None:
         list(char.profession.skills.possible.items()),
         char.profession.skills.possible_count,
     ):
-        char.skills[skill] = score
+        _set_skill(char, skill, score)
         char.picked_skills.append(skill)
         logger.debug("%s, set picked professional skill %s to %s", char, skill, score)
 
@@ -35,6 +35,15 @@ def generate_skills(char: Character) -> None:
         char.bonds[i] = char.stats["charisma"]
 
     generate_bonus_skills(char)
+
+
+def _set_skill(char: Character, skill: str, score: int | str) -> None:
+    """Profession data mixes scores with sub-skill names (`craft1label: "Electrician"`); keep the
+    numbers in `char.skills` so nothing that does arithmetic on them has to check."""
+    if isinstance(score, str):
+        char.skill_labels[skill] = score
+    else:
+        char.skills[skill] = score
 
 
 def generate_bonus_skills(char: Character) -> None:

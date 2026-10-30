@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from dggen.models import EducationData, EmployerData, Kit, Profession, ProfessionSkills, Weapon
 
 
@@ -48,6 +50,7 @@ def test_weapon_maps_hyphenated_keys_and_nested_damage():
     )
     assert weapon.base_range == "15m"
     assert weapon.ammo == 15
+    assert weapon.damage is not None
     assert weapon.damage.dice == 1
     assert weapon.damage.die_type == 10
     assert weapon.damage.db_applies is True
@@ -103,3 +106,26 @@ def test_employer_data_from_dict():
     template_option = employer.professions["police officer"].options[0]
     assert template_option.weight == 3
     assert template_option.template == "{city} Police Department"
+
+
+def test_damage_dice_and_die_type_come_as_a_pair():
+    from dggen.models import Damage
+
+    assert Damage.from_dict({"dice": 2, "die-type": 8}).die_type == 8
+    assert Damage.from_dict({"special": "Victim -40%"}).dice is None  # no roll at all is fine
+    for half in ({"dice": 2}, {"die-type": 8}):
+        with pytest.raises(ValueError, match="dice.*die-type"):
+            Damage.from_dict(half)
+
+
+def test_every_model_annotation_resolves_at_runtime():
+    """Annotations imported only under TYPE_CHECKING make `typing.get_type_hints` raise
+    NameError, which breaks anything that introspects the models."""
+    import dataclasses
+    import typing
+
+    from dggen import models
+
+    for name, obj in vars(models).items():
+        if dataclasses.is_dataclass(obj):
+            typing.get_type_hints(obj)  # raises NameError if an annotation can't be resolved

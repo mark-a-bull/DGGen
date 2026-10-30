@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "pypdf>=4"]
+dev = ["pytest>=8", "pypdf>=4", "mypy>=1.10", "types-reportlab"]
 
 [project.scripts]
 dggen = "dggen.cli:main"
@@ -35,3 +35,11 @@ dggen = ["data/*.pdf"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.mypy]
+# `mypy` checks the package strictly. tests/test_typing.py also checks tests/ (with the
+# untyped-def rules relaxed: fixtures and test functions are deliberately unannotated).
+python_version = "3.10"
+files = ["dggen"]
+strict = true
+warn_unused_ignores = true
