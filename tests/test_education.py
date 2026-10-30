@@ -72,7 +72,10 @@ class TestAgeConsistency:
     def test_no_doctorate_before_grad_age(self, make_character):
         for seed in range(50):
             char = make_character(
-                profession="Anthropologist", seed=seed, min_age=25, max_age=27,
+                profession="Anthropologist",
+                seed=seed,
+                min_age=25,
+                max_age=27,
             )
             if char.education:
                 assert "Ph.D." not in char.education

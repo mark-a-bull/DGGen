@@ -14,13 +14,16 @@ def pools_root(tmp_path):
     (tmp_path / "towns").mkdir()
 
     (tmp_path / "names" / "male-given.txt").write_text(
-        "# a comment, ignored\nAlan\n\nBernard\nCarl\n", encoding="utf-8",
+        "# a comment, ignored\nAlan\n\nBernard\nCarl\n",
+        encoding="utf-8",
     )
     (tmp_path / "towns" / "us.csv").write_text(
-        "town,pop\nBigCity,1000\nSmallTown,10\n", encoding="utf-8",
+        "town,pop\nBigCity,1000\nSmallTown,10\n",
+        encoding="utf-8",
     )
     (tmp_path / "towns" / "single-column.csv").write_text(
-        "town\nOnlyTown\nAnotherTown\n", encoding="utf-8",
+        "town\nOnlyTown\nAnotherTown\n",
+        encoding="utf-8",
     )
     return tmp_path
 
@@ -120,7 +123,11 @@ class TestMalformedFiles:
         ],
     )
     def test_bad_content_raises_invalid_pool_naming_the_file(
-        self, tmp_path, name, content, fragment,
+        self,
+        tmp_path,
+        name,
+        content,
+        fragment,
     ):
         pools = self._pool(tmp_path, name, content)
         with pytest.raises(InvalidPool) as exc:

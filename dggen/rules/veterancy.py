@@ -84,7 +84,10 @@ def veterancy_stat_losses(char: Character) -> None:
             char.stats[target] -= 1
             losses -= 1
             logger.debug(
-                "%s, %s decreased by 1 to %s by veterancy", char, target, char.stats[target],
+                "%s, %s decreased by 1 to %s by veterancy",
+                char,
+                target,
+                char.stats[target],
             )
 
 

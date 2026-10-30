@@ -76,7 +76,9 @@ def load_data(options: Namespace, rng: Rng) -> Data:
         try:
             faker = Faker(options.names)
         except AttributeError as exc:  # Faker's way of saying the locale doesn't exist
-            raise InvalidLocale(f"Unknown --names locale {options.names!r} (e.g. en_US, en_GB)") from exc
+            raise InvalidLocale(
+                f"Unknown --names locale {options.names!r} (e.g. en_US, en_GB)"
+            ) from exc
         if getattr(options, "seed", None) is not None:
             faker.seed_instance(options.seed)
         male_given_names = faker.first_name_male

@@ -358,7 +358,9 @@ class SheetWriter:
         self.c.drawString(20, 55, f"SUBJ ROSTER/ACTIVE/NOCELL/{'O' if oconus else ''}CONUS//")
         self.c.drawString(20, 25, "HTTP://GITHUB.COM/JIMSTORCH/DGGEN")
         self.c.showPage()
-        self.c.drawImage(str(config.INSIDE_COVER_IMAGE), 0, 0, config.PAGE_WIDTH, config.PAGE_HEIGHT)
+        self.c.drawImage(
+            str(config.INSIDE_COVER_IMAGE), 0, 0, config.PAGE_WIDTH, config.PAGE_HEIGHT
+        )
         self.c.showPage()
 
     def add_page(self, d: dict[str, FieldValue]) -> None:
@@ -377,7 +379,11 @@ class SheetWriter:
         if self.pages_per_sheet == 1:
             self.bookmark("Back Page")
             self.c.drawImage(
-                str(config.SHEET_BACK_IMAGE), 0, 0, config.PAGE_WIDTH, config.PAGE_HEIGHT,
+                str(config.SHEET_BACK_IMAGE),
+                0,
+                0,
+                config.PAGE_WIDTH,
+                config.PAGE_HEIGHT,
             )
             self.c.showPage()
         self.c.save()

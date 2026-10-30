@@ -51,7 +51,8 @@ class TestAmbiguousLabels:
 
     def test_unique_label_is_not_ambiguous(self, fbi_professions):
         unique = next(
-            p.label for p in fbi_professions.values()
+            p.label
+            for p in fbi_professions.values()
             if sum(q.label == p.label for q in fbi_professions.values()) == 1
         )
         assert ambiguous_keys(fbi_professions, unique) == []

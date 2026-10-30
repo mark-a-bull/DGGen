@@ -16,7 +16,10 @@ def test_every_emitted_field_has_a_coordinate(make_character, data):
     known = set(SheetWriter.field_xys)
     for profession in data.professions:
         char = make_character(
-            profession=profession, seed=11, veterancy_enabled=True, damaged=True,
+            profession=profession,
+            seed=11,
+            veterancy_enabled=True,
+            damaged=True,
         )
         char.equip(char.profession.equipment_kit)
         char.print_footnotes()
@@ -28,14 +31,21 @@ def test_cli_generates_valid_pdf(tmp_path):
     out = tmp_path / "roster.pdf"
     rc = main(
         [
-            "-t", "Anthropologist",
-            "-c", "1",
-            "--name", "Dr. Arthur Finch",
-            "--sex", "male",
-            "--birthdate", "1986-11-24",
-            "--seed", "42",
+            "-t",
+            "Anthropologist",
+            "-c",
+            "1",
+            "--name",
+            "Dr. Arthur Finch",
+            "--sex",
+            "male",
+            "--birthdate",
+            "1986-11-24",
+            "--seed",
+            "42",
             "--pdf",
-            "-o", str(out),
+            "-o",
+            str(out),
         ],
     )
     assert rc == 0
@@ -54,7 +64,6 @@ def test_cli_multiple_professions_builds_toc(tmp_path):
     rc = main(["--seed", "1", "--pdf", "-o", str(out)])
     assert rc == 0
     assert out.read_bytes().startswith(b"%PDF")
-
 
 
 def _toc_rows(reader):
@@ -120,7 +129,19 @@ def test_unencodable_stdout_does_not_abort_generation(tmp_path, monkeypatch):
     monkeypatch.setattr(sys, "stdout", stdout)
     out = tmp_path / "x.pdf"
     rc = main(
-        ["-t", "agent", "-c", "1", "--name", "Дмитрий Иванов", "--seed", "1", "--pdf", "-o", str(out)],
+        [
+            "-t",
+            "agent",
+            "-c",
+            "1",
+            "--name",
+            "Дмитрий Иванов",
+            "--seed",
+            "1",
+            "--pdf",
+            "-o",
+            str(out),
+        ],
     )
     assert rc == 0
     assert out.read_bytes().startswith(b"%PDF")
@@ -143,7 +164,10 @@ def test_every_weapon_name_fits_its_box_at_a_legible_size(tmp_path):
         assert name_x + max_width < roll_x, f"{field} would run into the next column"
         for weapon in weapons.values():
             text, size = shrink_to_fit(
-                weapon["name"], SheetWriter.field_xys[field][2], max_width, writer._measure,
+                weapon["name"],
+                SheetWriter.field_xys[field][2],
+                max_width,
+                writer._measure,
             )
             assert text == weapon["name"], f"{weapon['name']!r} had to be truncated"
             assert size >= 7, f"{weapon['name']!r} shrank to {size}pt"
@@ -180,8 +204,23 @@ def test_long_name_profession_and_nationality_stay_inside_their_boxes(tmp_path):
     long = "Montgomery-Featherstonehaugh " * 4
     out = tmp_path / "x.pdf"
     rc = main(
-        ["-t", "agent", "-c", "1", "--seed", "1", "--name", long, "--label", long,
-         "-n", long, "--pdf", "-o", str(out)],
+        [
+            "-t",
+            "agent",
+            "-c",
+            "1",
+            "--seed",
+            "1",
+            "--name",
+            long,
+            "--label",
+            long,
+            "-n",
+            long,
+            "--pdf",
+            "-o",
+            str(out),
+        ],
     )
     assert rc == 0
 

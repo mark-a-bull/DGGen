@@ -83,7 +83,10 @@ class TestVeterancy:
     def test_physical_stats_never_below_one(self, make_character):
         # An extreme age forces the maximum stat-loss band.
         char = make_character(
-            seed=3, birthdate=date(1930, 1, 1), veterancy_enabled=True, damaged=False,
+            seed=3,
+            birthdate=date(1930, 1, 1),
+            veterancy_enabled=True,
+            damaged=False,
         )
         for stat in PHYSICAL_STATS:
             assert char.d[stat] >= 1
@@ -91,7 +94,10 @@ class TestVeterancy:
     def test_veterancy_boosts_are_nonnegative(self, make_character):
         base = make_character(seed=5, birthdate=date(1996, 1, 1))
         vet = make_character(
-            seed=5, birthdate=date(1970, 1, 1), veterancy_enabled=True, damaged=False,
+            seed=5,
+            birthdate=date(1970, 1, 1),
+            veterancy_enabled=True,
+            damaged=False,
         )
         # A veteran's fixed professional skills should be at least their base value.
         for skill in base.profession.skills.fixed:
@@ -121,7 +127,9 @@ class TestEquipment:
             char.equip("agent")
         assert len(char.gear_lines) == MAX_GEAR_LINES
         assert char.gear_lines[-1] == f"Item {MAX_GEAR_LINES - 1}"
-        assert not [key for key in char.e if key.startswith("gear") and int(key[4:]) >= MAX_GEAR_LINES]
+        assert not [
+            key for key in char.e if key.startswith("gear") and int(key[4:]) >= MAX_GEAR_LINES
+        ]
         assert "Item 29" in caplog.text  # the warning names what was dropped
 
     def test_overfull_weapon_list_warns_with_names_not_reprs(self, make_character, caplog):

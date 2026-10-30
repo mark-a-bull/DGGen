@@ -1,0 +1,10 @@
+# Normalise line endings to LF in the repository regardless of each contributor's autocrlf.
+* text=auto eol=lf
+
+*.jpg binary
+*.png binary
+*.pdf binary
+*.ttf binary
+
+# Third-party licence text: keep its bytes exactly as shipped.
+dggen/data/SpecialEliteLicense.txt -text

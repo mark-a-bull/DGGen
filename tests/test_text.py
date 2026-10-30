@@ -100,7 +100,11 @@ class TestShrinkToFit:
 
     def test_truncates_with_ellipsis_when_min_size_insufficient(self):
         text, size = shrink_to_fit(
-            "abcdefghij", 8, max_width=18, measure=self.measure, min_size=6,
+            "abcdefghij",
+            8,
+            max_width=18,
+            measure=self.measure,
+            min_size=6,
         )
         assert text.endswith("…")
         assert self.measure(text, size) <= 18
@@ -153,7 +157,10 @@ class TestFormatDetails:
 
     def test_employer_and_education_lines_omitted_when_blank(self, make_character):
         char = make_character(
-            profession="agent", seed=1, auto_employer=False, auto_education=False,
+            profession="agent",
+            seed=1,
+            auto_employer=False,
+            auto_education=False,
         )
         text = format_details(char)
         assert "Employer:" not in text

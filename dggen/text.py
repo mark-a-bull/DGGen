@@ -63,9 +63,7 @@ def format_name(name: str) -> str:
 def age_on(birthdate: date, today: date) -> int:
     """Whole years from `birthdate` to `today`, accounting for whether the birthday has passed."""
     return (
-        today.year
-        - birthdate.year
-        - ((today.month, today.day) < (birthdate.month, birthdate.day))
+        today.year - birthdate.year - ((today.month, today.day) < (birthdate.month, birthdate.day))
     )
 
 

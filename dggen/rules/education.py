@@ -23,7 +23,8 @@ def generate_education(char: Character, education_data: EducationData) -> None:
         return  # --education override already applied in generate_demographics
 
     entry = education_data.professions.get(
-        char.profession.label.lower(), education_data.professions["_default"],
+        char.profession.label.lower(),
+        education_data.professions["_default"],
     )
 
     # Only tiers the character is old enough to have completed. Iterating entry.tiers (a dict, so

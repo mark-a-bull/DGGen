@@ -94,5 +94,18 @@ ALL_BONUS = [
 
 # The footnote indicator glyphs, cycled as footnotes are registered.
 FOOTNOTE_MARKERS = [
-    "*", "†", "‡", "§", "¶", "**", "††", "‡‡", "§§", "¶¶", "***", "†††", "‡‡‡", "§§§",
+    "*",
+    "†",
+    "‡",
+    "§",
+    "¶",
+    "**",
+    "††",
+    "‡‡",
+    "§§",
+    "¶¶",
+    "***",
+    "†††",
+    "‡‡‡",
+    "§§§",
 ]

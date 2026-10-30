@@ -53,13 +53,17 @@ def equip(char: Character, kit_name: str | None = None) -> None:
         if len(lines) > MAX_GEAR_LINES:
             logger.warning(
                 "Kit %r has more gear than the sheet's %d lines; dropped: %s",
-                kit_name, MAX_GEAR_LINES, " / ".join(line.strip() for line in lines[MAX_GEAR_LINES:]),
+                kit_name,
+                MAX_GEAR_LINES,
+                " / ".join(line.strip() for line in lines[MAX_GEAR_LINES:]),
             )
 
     if len(weapons) > MAX_WEAPONS:
         logger.warning(
             "Kit %r has more weapons than the sheet's %d slots; dropped: %s",
-            kit_name, MAX_WEAPONS, ", ".join(weapon.name for weapon in weapons[MAX_WEAPONS:]),
+            kit_name,
+            MAX_WEAPONS,
+            ", ".join(weapon.name for weapon in weapons[MAX_WEAPONS:]),
         )
     char.weapons = [build_equipped_weapon(char, weapon) for weapon in weapons[:MAX_WEAPONS]]
 

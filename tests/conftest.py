@@ -31,7 +31,11 @@ def make_character():
         loaded = load_data(options, rng)
         prof = find_profession(loaded.professions, profession)
         return Character.generate(
-            data=loaded, rng=rng, sex=sex, profession=prof, **kwargs,
+            data=loaded,
+            rng=rng,
+            sex=sex,
+            profession=prof,
+            **kwargs,
         )
 
     return _make

@@ -27,7 +27,13 @@ class TestGenerateEmployer:
         from dggen import config
 
         options = get_options(
-            ["--seed", "0", "--professions", str(config.DATA_DIR / "professions-fbi.json"), "--pdf"],
+            [
+                "--seed",
+                "0",
+                "--professions",
+                str(config.DATA_DIR / "professions-fbi.json"),
+                "--pdf",
+            ],
         )
         fbi_data = load_data(options, Rng(0))
         prof = find_profession(fbi_data.professions, "cid")
@@ -51,9 +57,9 @@ class TestTownAwareTemplates:
         # big-city pool, so across enough seeds at least one must use the character's own town.
         results = [make_character(profession="Police Officer", seed=s) for s in range(20)]
         assert all("Police Department" in c.employer for c in results)
-        assert any(
-            c.town.split(",")[0].strip() in c.employer for c in results
-        ), "expected at least one {city} Police Department among 20 seeds"
+        assert any(c.town.split(",")[0].strip() in c.employer for c in results), (
+            "expected at least one {city} Police Department among 20 seeds"
+        )
 
     def test_firefighter_employer_always_fire_department(self, make_character):
         # Firefighter can resolve to either a {city} Fire Department or a named big-city pool;
