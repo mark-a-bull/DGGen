@@ -7,16 +7,19 @@ values; this turns them into what the PDF layer draws. Kept reportlab-free.
 
 from __future__ import annotations
 
-from textwrap import shorten
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from dggen.character import Character
     from dggen.equipped import EquippedWeapon
 
 
-def to_front_fields(char: Character) -> dict[str, Any]:
-    d: dict[str, Any] = {}
+# What a sheet field holds: display text or a number. Both are drawn via str().
+FieldValue = str | int
+
+
+def to_front_fields(char: Character) -> dict[str, FieldValue]:
+    d: dict[str, FieldValue] = {}
 
     d["male" if char.sex == "male" else "female"] = "X"
     d["name"] = char.name
@@ -41,6 +44,7 @@ def to_front_fields(char: Character) -> dict[str, Any]:
     d["damage bonus"] = "DB=%d" % char.damage_bonus
 
     d.update(char.skills)
+    d.update(char.skill_labels)
     for i, value in char.bonds.items():
         d[f"bond{i}"] = value
 
@@ -52,9 +56,9 @@ def to_front_fields(char: Character) -> dict[str, Any]:
     return d
 
 
-def _weapon_fields(slot: int, w: EquippedWeapon) -> dict[str, Any]:
-    fields: dict[str, Any] = {
-        f"weapon{slot}": shorten(w.name, 15, placeholder="…"),
+def _weapon_fields(slot: int, w: EquippedWeapon) -> dict[str, FieldValue]:
+    fields: dict[str, FieldValue] = {
+        f"weapon{slot}": w.name,
         f"weapon{slot}_roll": f"{w.roll}%",
     }
     if w.base_range is not None:
@@ -72,7 +76,7 @@ def _weapon_fields(slot: int, w: EquippedWeapon) -> dict[str, Any]:
     if w.note_markers:
         fields[f"weapon{slot}_note"] = " ".join(w.note_markers)
     if w.has_damage:
-        if w.damage_dice is not None:
+        if w.damage_dice is not None and w.damage_die_type is not None:
             damage_roll = f"{w.damage_dice}D{w.damage_die_type}" + (
                 f"{w.damage_modifier:+d}" if w.damage_modifier else ""
             )
@@ -84,8 +88,8 @@ def _weapon_fields(slot: int, w: EquippedWeapon) -> dict[str, Any]:
     return fields
 
 
-def to_back_fields(char: Character) -> dict[str, Any]:
-    e: dict[str, Any] = {}
+def to_back_fields(char: Character) -> dict[str, FieldValue]:
+    e: dict[str, FieldValue] = {}
     for slot, weapon in enumerate(char.weapons):
         e.update(_weapon_fields(slot, weapon))
     for i, line in enumerate(char.gear_lines):

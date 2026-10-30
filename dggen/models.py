@@ -8,19 +8,19 @@ eager annotation evaluation.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-if TYPE_CHECKING:
-    from collections.abc import Callable
-
-    from dggen.pools import Pools
+from dggen.pools import Pools
 
 
 @dataclass
 class ProfessionSkills:
-    fixed: dict[str, int]
-    possible: dict[str, int] = field(default_factory=dict)
+    # Values are scores (int) except for sub-skill names such as `craft1label: "Electrician"`,
+    # which the sheet stores beside their `craft1value` score; generation splits those out.
+    fixed: dict[str, int | str]
+    possible: dict[str, int | str] = field(default_factory=dict)
     possible_count: int = 0
     bonus: list[str] = field(default_factory=list)
 
@@ -67,6 +67,8 @@ class Damage:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Damage:
+        if ("dice" in d) != ("die-type" in d):
+            raise ValueError(f"damage needs both 'dice' and 'die-type', or neither (got {d!r})")
         return cls(
             dice=d.get("dice"),
             die_type=d.get("die-type"),

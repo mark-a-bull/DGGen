@@ -12,9 +12,15 @@ from pathlib import Path
 
 from dggen import __version__, config
 from dggen.character import Character
-from dggen.data import InvalidLocale, ProfessionNotFound, find_profession, load_data
+from dggen.data import (
+    InvalidLocale,
+    ProfessionNotFound,
+    ambiguous_keys,
+    find_profession,
+    load_data,
+)
 from dggen.pdf import SheetWriter
-from dggen.pools import UnknownPool
+from dggen.pools import PoolError
 from dggen.rng import Rng
 from dggen.logging_setup import init_logger
 from dggen.text import format_details, generate_label, parse_date
@@ -286,6 +292,11 @@ def get_options(argv: list[str] | None = None) -> argparse.Namespace:
         parser.error(
             f"-a/--min-age ({options.min_age}) must not exceed -A/--max-age ({options.max_age})",
         )
+    today = datetime.now().date()
+    if options.birthdate and options.birthdate > today:
+        parser.error(f"--birthdate {options.birthdate} is in the future")
+    if options.birth_year and options.birth_year >= today.year:
+        parser.error(f"--birth-year must be before {today.year}, got {options.birth_year}")
     if options.pdf and not options.output.resolve().parent.is_dir():
         # Fail now, not after the whole roster has been generated.
         parser.error(f"-o/--output directory does not exist: {options.output.resolve().parent}")
@@ -311,9 +322,17 @@ def main(argv: list[str] | None = None) -> int:
             if options.type
             else list(data.professions.values())
         )
-    except (ProfessionNotFound, UnknownPool, InvalidLocale, OSError, json.JSONDecodeError) as exc:
+    except (ProfessionNotFound, PoolError, InvalidLocale, OSError, json.JSONDecodeError) as exc:
         logger.error("%s", exc)
         return 2
+
+    if options.type and (candidates := ambiguous_keys(data.professions, options.type)):
+        # Not a logger.warning: that is hidden unless -v is given, and this changes the output.
+        print(
+            f"note: {options.type!r} matches {len(candidates)} professions "
+            f"({', '.join(candidates)}); using {candidates[0]}. Pass a key to choose.",
+            file=sys.stderr,
+        )
 
     writer = None
     pages_per_sheet = 2 if options.equip else 1

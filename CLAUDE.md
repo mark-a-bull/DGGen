@@ -58,6 +58,15 @@ results for an identical seed even when picking from the same list uniformly, so
 golden-changing move in its own right, not a no-op refactor (this is why `Pools.choice()` — see below — standardises
 on `.choices()` everywhere, rather than "no observable behavior change").
 
+### Types
+
+`dggen/` is kept clean under `mypy --strict` (config in `pyproject.toml`; `mypy` and `types-reportlab` are in the
+`[dev]` extra). `tests/test_typing.py` runs it — on the package, and on `tests/` with the untyped-def rules relaxed
+because fixtures and test functions are deliberately unannotated — so a type error fails the suite. Run `mypy` on its
+own for the full message. What the types encode, so you don't have to rediscover it: `Character.profession` is
+required at construction (never `None`); `char.skills` is all `int`, with sub-skill names split into
+`char.skill_labels`; sheet fields are `serialize.FieldValue` (`str | int`); `store_footnote` takes and returns `str`.
+
 ### Verifying PDF output visually
 
 reportlab renders text at explicit `(x, y)` point coordinates onto a background JPG — you can't judge placement from
@@ -105,10 +114,10 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
   resolved per-character weapon (roll, effective damage modifier, assigned footnote markers) — distinct from
   `models.Weapon` (the raw JSON).
 
-  `char.skills` holds more than numeric scores: sub-skill names are stored as `<base>label` strings next to a
-  `<base>value` score (`craft1label: "Electrician"`, `craft1value: 40`), because that is how the sheet lays them
-  out. Anything iterating skills for display must fold those pairs (see `text._skill_rows`) and anything doing
-  arithmetic must skip non-ints. Veterancy experience checks apply only to fixed skills, the `possible` skills
+  The profession JSON stores sub-skill names as `<base>label` strings next to a `<base>value` score
+  (`craft1label: "Electrician"`, `craft1value: 40`), because that is how the sheet lays them out. Generation splits
+  them: scores go in `char.skills` (always `int`, safe for arithmetic), names in `char.skill_labels`; `serialize`
+  merges both back for the sheet and `text._skill_rows` folds each pair into one "Craft (Electrician)" row. Veterancy experience checks apply only to fixed skills, the `possible` skills
   actually picked (`char.picked_skills`) and `char.bonus_skills` — an unpicked `possible` skill is just a default
   skill. Bonus skills are de-duplicated before picking, so a profession-suggested bonus is never boosted twice.
 
@@ -118,6 +127,13 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
   (not the JSON key), since many different `professions*.json` keys across FBI/CIA/SOCOM/UK variants share one
   real-world label (`agent`, `cid`, `nsb-agent` → "Federal Agent") — same resolution style as `find_profession`.
   Unknown labels fall back to each file's `_default` entry.
+
+  `-t` by display label can match several professions (`cid` and `nsb-agent` are both "Federal Agent" in the FBI set):
+  `find_profession` takes an exact key first (case-insensitively), then the first label match, and `main` prints a
+  note to stderr naming the alternatives (`data.ambiguous_keys`). Equipment kits must fit the sheet's 7 weapon slots
+  (Unarmed takes one) and 22 gear lines; overflow is dropped with a warning naming what was lost, and
+  `test_every_bundled_kit_fits_the_weapon_slots` fails if a kit *always* overflows (as the SWAT grenades once did).
+  Footnote markers are handed out in first-use order; past the 14 available the last one is shared, with a warning.
 
   `rules/education.py`: degree phrasing (`B.S.` vs `B.A.`, `M.S.` vs `M.A.`) is chosen deterministically from the
   field name via the pool at `EducationData.science_fields_pool` (default `fields/science`), not by a second RNG
@@ -147,12 +163,18 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
   distinguishing-feature lookups) must happen during generation, not in serialization, or a fixed seed stops
   reproducing — `serialize` must be a pure function of already-generated state.
 
+- **Pool errors** (`pools.py`): `PoolError` is the base the CLI catches; `UnknownPool` means no such id/file and
+  `InvalidPool` means the file is unusable (empty, non-integer/negative/all-zero weights, a row missing its weight, a
+  third column — usually an unquoted comma —, or not UTF-8). All are raised when the file is read, i.e. at startup, with
+  the file and line in the message. A UTF-8 BOM is tolerated.
+
 - **Presentation** (`pdf.py`): `SheetWriter` wraps a reportlab `Canvas`. `field_xys` is the single source of truth
   mapping field name → `(x, y, font_size)` on the sheet background. `fill_field` looks up each `d`/`e` key and draws
   it; unknown keys are logged and skipped, never raised (so `test_pdf.py` asserts every emitted key *has* a
-  coordinate as a guard). Free-text fields that sit in a single-line box (`education` and `employer`, in
-  `field_max_widths`) run through `text.shrink_to_fit`, which shrinks font size then ellipsis-truncates — reuse this
-  for any new free-text field.
+  coordinate as a guard). Free-text fields that sit in a single-line box (`name`, `profession`, `employer`,
+  `nationality`, `education` and the seven weapon names, in `field_max_widths`) run through `text.shrink_to_fit`,
+  which shrinks font size then ellipsis-truncates — reuse this for any new free-text field. Weapon names are drawn in
+  full and shrunk (never cut at a fixed length, which made "Grenade launcher" and "Grenade machine gun" identical).
 
 - **Interface** (`cli.py`, `logging_setup.py`, `config.py`): argparse + the generation loop; `config.py` centralises
   page geometry, colours, fonts, and all asset/data paths.

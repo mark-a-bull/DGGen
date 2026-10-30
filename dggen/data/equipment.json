@@ -530,10 +530,14 @@
           "type": "ced-pistol"
         },
         {
-          "type": "stun-grenade"
-        },
-        {
-          "type": "tear-grenade"
+          "one-of": [
+            {
+              "type": "stun-grenade"
+            },
+            {
+              "type": "tear-grenade"
+            }
+          ]
         }
       ],
       "armour": [

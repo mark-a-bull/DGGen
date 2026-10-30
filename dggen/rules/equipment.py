@@ -14,7 +14,7 @@ from textwrap import wrap
 from typing import TYPE_CHECKING
 
 from dggen.equipped import EquippedWeapon
-from dggen.models import KitArmourEntry
+from dggen.models import KitArmourEntry, KitGearEntry
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -34,8 +34,9 @@ def equip(char: Character, kit_name: str | None = None) -> None:
         kit = char.data.kits[kit_name]
         weapons += build_weapon_list(char, kit.weapons)
 
-        gear = []
-        for item in [*kit.armour, *kit.gear]:
+        gear: list[str] = []
+        items: list[KitArmourEntry | KitGearEntry] = [*kit.armour, *kit.gear]
+        for item in items:
             if item.chance < char.rng.randint(1, 100):
                 continue
             notes = (
@@ -47,12 +48,19 @@ def equip(char: Character, kit_name: str | None = None) -> None:
                 text = notes + item.text
             gear.append(text)
 
-        char.gear_lines = list(chain(*[wrap(item, 55, subsequent_indent="  ") for item in gear]))
-        if len(char.gear_lines) > MAX_GEAR_LINES:
-            logger.warning("Too much gear - truncated.")
+        lines = list(chain(*[wrap(item, 55, subsequent_indent="  ") for item in gear]))
+        char.gear_lines = lines[:MAX_GEAR_LINES]
+        if len(lines) > MAX_GEAR_LINES:
+            logger.warning(
+                "Kit %r has more gear than the sheet's %d lines; dropped: %s",
+                kit_name, MAX_GEAR_LINES, " / ".join(line.strip() for line in lines[MAX_GEAR_LINES:]),
+            )
 
     if len(weapons) > MAX_WEAPONS:
-        logger.warning("Too many weapons %s - truncated.", weapons)
+        logger.warning(
+            "Kit %r has more weapons than the sheet's %d slots; dropped: %s",
+            kit_name, MAX_WEAPONS, ", ".join(weapon.name for weapon in weapons[MAX_WEAPONS:]),
+        )
     char.weapons = [build_equipped_weapon(char, weapon) for weapon in weapons[:MAX_WEAPONS]]
 
 

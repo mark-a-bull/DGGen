@@ -107,10 +107,38 @@ class TestEquipment:
         # At most 7 weapon slots (0-6).
         assert all(f"weapon{i}" not in char.e for i in range(7, 12))
 
-    def test_gear_lines_capped(self, make_character):
-        char = make_character(profession="soldier")
-        char.equip("soldier")
-        assert all(f"gear{i}" not in char.e for i in range(22, 40))
+    def test_overlong_gear_is_truncated_to_the_sheet_with_a_warning(self, make_character, caplog):
+        import logging
+
+        from dggen.models import KitGearEntry
+        from dggen.rules.equipment import MAX_GEAR_LINES
+
+        char = make_character(profession="agent")
+        kit = char.data.kits["agent"]
+        kit.armour = []
+        kit.gear = [KitGearEntry(text=f"Item {i}") for i in range(MAX_GEAR_LINES + 8)]
+        with caplog.at_level(logging.WARNING, logger="dggen"):
+            char.equip("agent")
+        assert len(char.gear_lines) == MAX_GEAR_LINES
+        assert char.gear_lines[-1] == f"Item {MAX_GEAR_LINES - 1}"
+        assert not [key for key in char.e if key.startswith("gear") and int(key[4:]) >= MAX_GEAR_LINES]
+        assert "Item 29" in caplog.text  # the warning names what was dropped
+
+    def test_overfull_weapon_list_warns_with_names_not_reprs(self, make_character, caplog):
+        import logging
+
+        from dggen.models import WeaponRef
+        from dggen.rules.equipment import MAX_WEAPONS
+
+        char = make_character(profession="agent")
+        types = [t for t in char.data.weapons if t != "unarmed"][: MAX_WEAPONS + 2]
+        char.data.kits["agent"].weapons = [WeaponRef(type=t) for t in types]
+        with caplog.at_level(logging.WARNING, logger="dggen"):
+            char.equip("agent")
+        assert len(char.weapons) == MAX_WEAPONS
+        dropped = [char.data.weapons[t].name for t in types[MAX_WEAPONS - 1 :]]
+        assert all(name in caplog.text for name in dropped)
+        assert "Weapon(" not in caplog.text  # no dataclass repr dumps
 
 
 class TestBonusSkills:
@@ -177,3 +205,106 @@ class TestVeterancySkillChecks:
         assert set(char.picked_skills) <= set(possible)
         for skill in char.picked_skills:
             assert char.skills[skill] == possible[skill]
+
+
+class TestBirthYear:
+    @pytest.mark.parametrize("seed", range(40))
+    def test_age_agrees_with_the_birthday_shown_on_the_sheet(self, make_character, seed):
+        """With only a birth year given the month/day are random; the age must be the true age
+        for that exact birthday, not just `this year - birth year`."""
+        from datetime import date
+
+        from dggen.constants import MONTHS
+        from dggen.text import age_on
+
+        char = make_character(profession="agent", seed=seed, birth_year=1986)
+        birthday = date(1986, MONTHS.index(char.birth_month_abbrev) + 1, char.birth_day)
+        assert char.age == age_on(birthday, date.today())
+
+    def test_both_sides_of_the_birthday_occur(self, make_character):
+        """Guard against the test above passing vacuously: across seeds the age must take both
+        of the two values a birth year allows."""
+        ages = {make_character(profession="agent", seed=s, birth_year=1986).age for s in range(40)}
+        assert len(ages) == 2
+
+
+def _guaranteed_weapons(ref):
+    """How many weapons this kit entry always contributes (a lower bound on what it yields)."""
+    if ref.chance < 100:
+        return 0
+    if ref.type is not None:
+        return 1
+    if ref.one_of:
+        return min(_guaranteed_weapons(option) for option in ref.one_of) or 1
+    return sum(_guaranteed_weapons(part) for part in ref.both)
+
+
+class TestKitsFitTheSheet:
+    def test_every_bundled_kit_fits_the_weapon_slots(self, data):
+        """A weapon the kit always grants but the sheet has no slot for is silently dropped, so
+        it can never appear on any character - that is a data bug, not bad luck."""
+        from dggen.rules.equipment import MAX_WEAPONS
+
+        too_big = {}
+        for name, kit in data.kits.items():
+            guaranteed = 1 + sum(_guaranteed_weapons(ref) for ref in kit.weapons)  # +1: unarmed
+            if guaranteed > MAX_WEAPONS:
+                too_big[name] = guaranteed
+        assert not too_big, f"kits that always overflow the {MAX_WEAPONS} weapon slots: {too_big}"
+
+    def test_swat_kit_can_produce_either_grenade(self, make_character):
+        """The stun and tear grenades are alternatives - each must be reachable."""
+        seen = set()
+        for seed in range(30):
+            char = make_character(profession="agent", seed=seed)
+            char.profession.equipment_kit = "swat"
+            char.weapons = []
+            char.equip("swat")
+            seen |= {w.name for w in char.weapons if "renade" in w.name}
+        assert len(seen) == 2, seen
+
+
+class TestFootnotes:
+    def test_same_note_keeps_its_marker_and_new_notes_get_new_ones(self, make_character):
+        char = make_character(profession="agent", seed=1)
+        first = char.store_footnote("one")
+        assert char.store_footnote("one") == first
+        assert char.store_footnote("two") != first
+
+    def test_running_out_of_markers_warns_instead_of_crashing(self, make_character, caplog):
+        """A custom kit with more distinct notes than there are markers used to die with a bare
+        StopIteration from inside a defaultdict factory."""
+        import logging
+
+        from dggen.constants import FOOTNOTE_MARKERS
+
+        char = make_character(profession="agent", seed=1)
+        with caplog.at_level(logging.WARNING, logger="dggen"):
+            markers = [char.store_footnote(f"note {i}") for i in range(len(FOOTNOTE_MARKERS) + 3)]
+        assert markers[: len(FOOTNOTE_MARKERS)] == list(FOOTNOTE_MARKERS)
+        assert all(marker in FOOTNOTE_MARKERS for marker in markers)
+        assert "footnote" in caplog.text.lower()
+
+
+class TestCharacterConstruction:
+    def test_a_character_always_has_a_profession(self, make_character):
+        """`profession` used to start as None and be filled in later; every rule step then had to
+        assume it was set. It is now a constructor argument."""
+        from dggen.character import Character
+
+        char = make_character(profession="agent", seed=1)
+        fresh = Character(char.data, char.rng, "female", char.profession)
+        assert fresh.profession is char.profession
+
+
+class TestSkillLabels:
+    def test_skills_are_all_numeric_and_labels_live_apart(self, make_character):
+        char = make_character(profession="engineer", seed=3)
+        assert all(isinstance(score, int) for score in char.skills.values())
+        assert char.skill_labels["craft1label"] == "Electrician"
+        assert "craft1label" not in char.skills
+
+    def test_the_sheet_still_receives_labels_and_scores(self, make_character):
+        char = make_character(profession="engineer", seed=3)
+        assert char.d["craft1label"] == "Electrician"
+        assert char.d["craft1value"] == char.skills["craft1value"]

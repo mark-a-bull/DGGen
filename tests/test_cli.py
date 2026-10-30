@@ -37,3 +37,33 @@ def test_invalid_options_are_a_usage_error(argv, tmp_path, capsys):
 )
 def test_unusable_data_options_exit_2_instead_of_raising(argv):
     assert main(argv) == 2
+
+
+@pytest.mark.parametrize(
+    ("filename", "content"),
+    [
+        ("empty.txt", ""),
+        ("bad-weight.csv", "town,pop\nA,lots\n"),
+        ("allzero.csv", "town,pop\nA,0\n"),
+    ],
+)
+def test_malformed_pool_file_exits_2_instead_of_raising(tmp_path, filename, content):
+    path = tmp_path / filename
+    path.write_text(content, encoding="utf-8")
+    assert main(["-t", "agent", "--surnames", str(path)]) == 2
+
+
+@pytest.mark.parametrize("which", ["next-year", "this-year", "tomorrow"])
+def test_birth_date_must_be_in_the_past(which, capsys):
+    from datetime import date, timedelta
+
+    today = date.today()
+    flags = {
+        "next-year": ["--birth-year", str(today.year + 1)],
+        "this-year": ["--birth-year", str(today.year)],
+        "tomorrow": ["--birthdate", (today + timedelta(days=1)).isoformat()],
+    }[which]
+    with pytest.raises(SystemExit) as exc:
+        main(["-t", "agent", *flags])
+    assert exc.value.code == 2
+    assert "error:" in capsys.readouterr().err
