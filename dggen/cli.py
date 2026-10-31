@@ -327,7 +327,6 @@ def sources_from(options: argparse.Namespace) -> DataSources:
         surnames=options.surnames,
         towns=options.towns,
         names_locale=options.names,
-        seed=options.seed,
     )
 
 
@@ -363,7 +362,7 @@ def main(argv: list[str] | None = None) -> int:
     rng = Rng(options.seed)
 
     try:
-        data = load_data(sources_from(options), rng)
+        data = load_data(sources_from(options))
         professions = (
             [find_profession(data.professions, options.type)]
             if options.type

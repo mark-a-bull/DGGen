@@ -21,7 +21,7 @@ class DataSources:
 
     The structured-config fields are file paths. The four pool fields are a pool id (see
     `dggen/data/pools/README.md`) or a path to your own file. `names_locale` switches name
-    generation to Faker for that locale (e.g. "en_GB"); `seed` seeds that Faker instance.
+    generation to Faker for that locale (e.g. "en_GB"); it draws from the `Rng` it is given.
     """
 
     professions: Path = config.DEFAULT_PROFESSIONS
@@ -34,7 +34,6 @@ class DataSources:
     surnames: str = config.DEFAULT_SURNAMES
     towns: str = config.DEFAULT_TOWNS
     names_locale: str | None = None
-    seed: int | None = None
 
 
 @dataclass(frozen=True)
@@ -54,3 +53,4 @@ class GenerationOptions:
     damaged: bool = True
     auto_education: bool = True
     auto_employer: bool = True
+    today: date | None = None  # the date ages are measured against (default: the real today)

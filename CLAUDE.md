@@ -44,7 +44,14 @@ pytest -k veterancy                         # by keyword
 Reproducibility is what makes the domain testable: all randomness flows through one seedable `dggen.rng.Rng`
 (`--seed N` on the CLI). The `make_character` fixture in `tests/conftest.py` drives the whole pipeline
 (`load_data` + `Character.generate`) from a single seeded `Rng`, exactly as the CLI does, so a seed reproduces a
-character including its name. If you touch generation, prefer asserting on the field dicts (`serialize.to_front_fields(char)` / `to_back_fields(char)`) over
+character including its name.
+
+`Rng` (`dggen/rng.py`) is deliberately not a `random.Random`: it offers `pick`, `weighted`, `roll`, `sample`,
+`shuffle` and `bits`, each pinned by `tests/test_rng.py` to the stdlib draw it wraps, and does *not* expose
+`choice`/`choices`/`randint`. Use the named method you mean (`pick` ≠ `weighted` even for a uniform list). Faker names
+are reseeded from the `Rng` on every call, so `--names` is inside the same stream. The clock is injectable too:
+`GenerationOptions.today` (default: the real date) is what ages and graduation years are measured against, via
+`char.today`; rules must not call `datetime.now()`. If you touch generation, prefer asserting on the field dicts (`serialize.to_front_fields(char)` / `to_back_fields(char)`) over
 rendered pixels.
 
 `tests/test_golden.py` compares the serialized `d`/`e` for every profession × seed × veterancy against a captured
@@ -113,7 +120,8 @@ Four layers, communicating across narrow seams. The pipeline: `cli.get_options` 
 profession, for each character `Character.generate(...)` → `pdf.SheetWriter` draws it.
 
 - **Data** (`models.py`, `data.py`, `pools.py`): `@dataclass` models with `from_dict` classmethods, loaded by
-  `load_data(options, rng)` into a `Data` object. `find_profession` resolves `-t/--type` by data key or display
+  `load_data(sources)` into a `Data` object (which holds no randomness: its name/town providers take the `Rng` per call,
+  so one `Data` serves any seed). `find_profession` resolves `-t/--type` by data key or display
   label (case-insensitive) and raises `ProfessionNotFoundError` (the CLI turns that into exit code 2 — library code
   raises, only the CLI exits). `from __future__ import annotations` in `models.py` is load-bearing: several
   `from_dict` methods return-annotate their own class, which would `NameError` under eager annotation evaluation.

@@ -23,7 +23,7 @@ GOLDEN = json.loads((Path(__file__).parent / "golden" / "characters.json").read_
 
 def _build(prof_key: str, seed: int, veterancy: bool):
     rng = Rng(seed)
-    data = load_data(DataSources(seed=seed), rng)
+    data = load_data(DataSources())
     prof = find_profession(data.professions, prof_key)
     char = Character.generate(
         data=data,

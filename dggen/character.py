@@ -13,7 +13,7 @@ Rule steps live in `dggen.rules.*` as functions that take and mutate a `Characte
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime
+from datetime import date
 from textwrap import wrap
 from typing import TYPE_CHECKING
 
@@ -39,6 +39,7 @@ class Character:
         self.rng = rng
         self.sex = sex
         self.profession = profession
+        self.today = date.today()  # overwritten from GenerationOptions.today by generate()
 
         # Demographics
         self.name = ""
@@ -94,6 +95,7 @@ class Character:
     ) -> Character:
         options = options or GenerationOptions()
         char = cls(data, rng, sex, profession)
+        char.today = options.today or date.today()
         char.generate_demographics(options)
         if options.auto_employer:
             employer.generate_employer(char, data.employer)
@@ -110,39 +112,47 @@ class Character:
         if options.name_override:
             self.name = format_name(options.name_override)
         elif self.sex == "male":
-            self.name = self.data.family_names().upper() + ", " + self.data.male_given_names()
+            self.name = (
+                self.data.family_names(self.rng).upper()
+                + ", "
+                + self.data.male_given_names(self.rng)
+            )
         else:
-            self.name = self.data.family_names().upper() + ", " + self.data.female_given_names()
+            self.name = (
+                self.data.family_names(self.rng).upper()
+                + ", "
+                + self.data.female_given_names(self.rng)
+            )
         self.profession_label = options.label_override or self.profession.label
         self.employer = options.employer_override or ", ".join(
             e for e in [self.profession.employer, self.profession.division] if e
         )
         self.education = options.education_override
-        self.town = self.data.towns()
+        self.town = self.data.towns(self.rng)
         self.nationality = (f"({options.nationality}) " if options.nationality else "") + self.town
         if options.birthdate:
-            self.age = age_on(options.birthdate, datetime.now().date())
+            self.age = age_on(options.birthdate, self.today)
             self.birth_month_abbrev = MONTHS[options.birthdate.month - 1]
             self.birth_day = options.birthdate.day
         elif options.birth_year:
-            self.birth_month_abbrev = self.rng.choice(MONTHS)
-            self.birth_day = self.rng.randint(1, 28)
+            self.birth_month_abbrev = self.rng.pick(MONTHS)
+            self.birth_day = self.rng.roll(1, 28)
             # The age has to agree with the birthday just drawn: whether it has passed this year
             # decides between `this year - birth_year` and one less.
             birthday = date(
                 options.birth_year, MONTHS.index(self.birth_month_abbrev) + 1, self.birth_day
             )
-            self.age = age_on(birthday, datetime.now().date())
+            self.age = age_on(birthday, self.today)
         else:
-            self.age = self.rng.randint(options.min_age, options.max_age)
-            self.birth_month_abbrev = self.rng.choice(MONTHS)
-            self.birth_day = self.rng.randint(1, 28)
+            self.age = self.rng.roll(options.min_age, options.max_age)
+            self.birth_month_abbrev = self.rng.pick(MONTHS)
+            self.birth_day = self.rng.roll(1, 28)
 
     def equip(self, kit_name: str | None = None) -> None:
         equipment.equip(self, kit_name)
 
     def distinguishing(self, field: str, value: int) -> str:
-        return self.rng.choice(self.data.distinguishing.get((field, value), [""]))
+        return self.rng.pick(self.data.distinguishing.get((field, value), [""]))
 
     def store_footnote(self, note: str) -> str:
         """Register a footnote and return its indicator glyph (the same one for the same note)."""

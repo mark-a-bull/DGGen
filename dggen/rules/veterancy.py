@@ -56,7 +56,7 @@ def veterancy_skill_boosts(char: Character) -> None:
             original = char.skills[skill]
             for _ in range(skill_checks):
                 current = char.skills[skill]
-                roll = char.rng.randint(1, 100)
+                roll = char.rng.roll(1, 100)
                 if roll > current or roll == 100:
                     char.skills[skill] += 1
             logger.debug(
@@ -79,7 +79,7 @@ def stat_losses_at_age(age: int) -> int:
 def veterancy_stat_losses(char: Character) -> None:
     losses = stat_losses_at_age(char.age)
     while losses and not all(char.stats[stat] <= 1 for stat in PHYSICAL_STATS):
-        target = char.rng.choice(PHYSICAL_STATS)
+        target = char.rng.pick(PHYSICAL_STATS)
         if char.stats[target] > 1:
             char.stats[target] -= 1
             losses -= 1
@@ -92,7 +92,7 @@ def veterancy_stat_losses(char: Character) -> None:
 
 
 def damaged_veteran_changes(char: Character) -> None:
-    damage_count = char.rng.choices(range(5), weights=[80, 10, 5, 4, 1])[0]
+    damage_count = char.rng.weighted(range(5), [80, 10, 5, 4, 1])
     if not damage_count:
         return
     damage_methods = char.rng.sample(
@@ -151,7 +151,7 @@ def things_man_was_not_meant_to_know_changes(char: Character, damage: list[str])
     char.skills["unnatural"] = char.skills.get("unnatural", 0) + 10
     char.skills["occult"] += 20
     char.san_lost += char.stats["power"]
-    char.disorder = char.rng.choice(
+    char.disorder = char.rng.pick(
         [
             "Amnesia",
             "Depersonalization",

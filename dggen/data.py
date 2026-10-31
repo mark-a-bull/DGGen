@@ -19,7 +19,7 @@ from dggen.pools import Pools
 from dggen.validate import DataError, validate_data
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
     from pathlib import Path
 
     from dggen.options import DataSources
@@ -92,7 +92,32 @@ def _reading(path: Path) -> Iterator[Any]:
         raise DataError(f"{path}: missing required key {exc.args[0]!r}") from exc
 
 
-def load_data(sources: DataSources, rng: Rng) -> Data:
+def _pool_provider(pools: Pools, ref: str) -> Callable[[Rng], str]:
+    """A provider drawing from a pool with whatever `Rng` it is handed."""
+
+    def provide(rng: Rng) -> str:
+        return pools.choice(ref, rng)
+
+    return provide
+
+
+def _faker_provider(faker: Faker, method: Callable[[], str]) -> Callable[[Rng], str]:
+    """A provider for Faker names that is driven by the caller's `Rng`.
+
+    Faker has its own generator, so it is reseeded from the `Rng` on every call. That keeps
+    `--names` inside the single seeded stream: the same seed reproduces the same names, with no
+    separate seed to pass around.
+    """
+
+    def provide(rng: Rng) -> str:
+        faker.seed_instance(rng.bits(32))
+        return method()
+
+    return provide
+
+
+def load_data(sources: DataSources) -> Data:
+    """Load every data file. The result holds no randomness (providers take an `Rng` per call)."""
     pools = Pools(config.POOLS_DIR)
 
     if sources.names_locale:
@@ -102,31 +127,21 @@ def load_data(sources: DataSources, rng: Rng) -> Data:
             raise InvalidLocaleError(
                 f"Unknown --names locale {sources.names_locale!r} (e.g. en_US, en_GB)"
             ) from exc
-        if sources.seed is not None:
-            faker.seed_instance(sources.seed)
-        male_given_names = faker.first_name_male
-        female_given_names = faker.first_name_female
-        family_names = faker.last_name
+        male_given_names = _faker_provider(faker, faker.first_name_male)
+        female_given_names = _faker_provider(faker, faker.first_name_female)
+        family_names = _faker_provider(faker, faker.last_name)
     else:
         # Validate eagerly: a bad --male-given-names/etc. should fail at startup, not partway
         # through generating a roster.
         pools.validate(sources.male_given_names)
         pools.validate(sources.female_given_names)
         pools.validate(sources.surnames)
-
-        def male_given_names() -> str:
-            return pools.choice(sources.male_given_names, rng)
-
-        def female_given_names() -> str:
-            return pools.choice(sources.female_given_names, rng)
-
-        def family_names() -> str:
-            return pools.choice(sources.surnames, rng)
+        male_given_names = _pool_provider(pools, sources.male_given_names)
+        female_given_names = _pool_provider(pools, sources.female_given_names)
+        family_names = _pool_provider(pools, sources.surnames)
 
     pools.validate(sources.towns)
-
-    def towns() -> str:
-        return pools.choice(sources.towns, rng)
+    towns = _pool_provider(pools, sources.towns)
 
     with _reading(sources.professions) as raw:
         professions = {k: Profession.from_dict(v) for k, v in raw.items()}

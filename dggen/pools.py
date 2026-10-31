@@ -19,7 +19,6 @@ way, and caches the result.
 from __future__ import annotations
 
 import csv
-import itertools
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -83,8 +82,7 @@ class Pools:
     def choice(self, ref: str, rng: Rng) -> str:
         """One random value, weighted if the pool has weights, uniform otherwise."""
         values, weights = self._resolve(ref)
-        cum_weights = list(itertools.accumulate(weights)) if weights else None
-        return rng.choices(values, cum_weights=cum_weights, k=1)[0]
+        return rng.weighted(values, weights)
 
 
 def _read_pool_file(path: Path) -> tuple[list[str], list[int] | None]:

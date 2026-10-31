@@ -10,7 +10,6 @@ from dggen import config
 from dggen.cli import main
 from dggen.data import ProfessionNotFoundError, ambiguous_keys, find_profession, load_data
 from dggen.options import DataSources
-from dggen.rng import Rng
 
 
 def test_lookup_by_key(data):
@@ -38,7 +37,7 @@ def test_unknown_profession_raises_with_valid_options_listed(data):
 def fbi_professions():
 
     sources = DataSources(professions=config.DATA_DIR / "professions-fbi.json")
-    return load_data(sources, Rng(0)).professions
+    return load_data(sources).professions
 
 
 class TestAmbiguousLabels:
