@@ -35,7 +35,8 @@ def generate_derived_attributes(char: Character) -> None:
     char.willpower = char.stats["power"]
     char.sanity = char.stats["power"] * 5
     if char.san_lost:
-        char.current_sanity = (char.stats["power"] * 5) - char.san_lost
+        # Sanity can run out but not go negative.
+        char.current_sanity = max(0, (char.stats["power"] * 5) - char.san_lost)
     char.breaking_point = char.sanity - char.stats["power"]
     char.damage_bonus = damage_bonus(char.stats["strength"])
     for stat in STATS:

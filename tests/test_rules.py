@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from datetime import date
 from itertools import pairwise
 from typing import Any
@@ -17,8 +18,12 @@ from dggen.rules.equipment import MAX_GEAR_LINES, MAX_WEAPONS
 from dggen.rules.skills import generate_bonus_skills
 from dggen.rules.stats import damage_bonus, generate_derived_attributes
 from dggen.rules.veterancy import (
+    captivity_or_imprisonment_changes,
+    extreme_violence_changes,
+    hard_experience_changes,
     skill_checks_at_age,
     stat_losses_at_age,
+    things_man_was_not_meant_to_know_changes,
     veterancy_skill_boosts,
 )
 from dggen.serialize import to_back_fields as _to_back_fields
@@ -389,3 +394,91 @@ class TestStatLossesAtAge:
     )  # fmt: skip
     def test_loses_physical_points_by_decade(self, age, expected):
         assert stat_losses_at_age(age) == expected
+
+
+class TestDamagedVeteranLimits:
+    """The effects stack (and POW/CHA/bonds drop by 3 each), so on an unlucky character they could
+    take a value somewhere the game never goes. Floors: POW and CHA at 1, bonds at 1, current
+    sanity at 0. Occult is deliberately NOT capped: the rules add +10/+20/+10 per effect and a
+    damaged veteran may end well past 99%."""
+
+    ALL_EFFECTS = (
+        extreme_violence_changes,
+        captivity_or_imprisonment_changes,
+        hard_experience_changes,
+        things_man_was_not_meant_to_know_changes,
+    )
+
+    def _fragile(self, make_character, *, power=3, charisma=3):
+        char = make_character(profession="agent", seed=4)
+        char.stats.update(power=power, charisma=charisma)
+        char.bonds = dict.fromkeys(range(char.profession.bonds), charisma)
+        return char
+
+    @pytest.mark.parametrize(("start", "expected"), [(10, 7), (4, 1), (3, 1), (2, 1), (1, 1)])
+    def test_extreme_violence_never_takes_charisma_below_one(self, make_character, start, expected):
+        char = self._fragile(make_character, charisma=start)
+        extreme_violence_changes(char, [])
+        assert char.stats["charisma"] == expected
+
+    @pytest.mark.parametrize(("start", "expected"), [(12, 9), (4, 1), (3, 1), (2, 1)])
+    def test_captivity_never_takes_power_below_one(self, make_character, start, expected):
+        char = self._fragile(make_character, power=start)
+        captivity_or_imprisonment_changes(char, [])
+        assert char.stats["power"] == expected
+
+    def test_extreme_violence_takes_three_from_each_bond_but_never_to_zero(self, make_character):
+        strong = self._fragile(make_character, charisma=12)
+        extreme_violence_changes(strong, [])
+        assert set(strong.bonds.values()) == {9}
+        weak = self._fragile(make_character, charisma=3)
+        extreme_violence_changes(weak, [])
+        assert set(weak.bonds.values()) == {1}
+
+    def test_a_profession_with_no_bonds_survives_hard_experience(self, make_character):
+        char = make_character(profession="agent", seed=4)
+        char.profession = replace(char.profession, bonds=0)
+        char.bonds = {}
+        hard_experience_changes(char, [])  # used to raise KeyError deleting a bond that isn't there
+        assert char.bonds == {}
+
+    def test_hard_experience_drops_the_last_bond(self, make_character):
+        char = self._fragile(make_character, charisma=10)
+        count = char.profession.bonds
+        hard_experience_changes(char, [])
+        assert set(char.bonds) == set(range(count - 1))
+
+    def test_every_effect_on_the_most_fragile_character_stays_in_range(self, make_character):
+        char = self._fragile(make_character, power=3, charisma=3)
+        for effect in self.ALL_EFFECTS:
+            effect(char, [])
+        generate_derived_attributes(char)
+        assert char.stats["power"] >= 1
+        assert char.stats["charisma"] >= 1
+        assert char.willpower >= 1
+        assert all(bond >= 1 for bond in char.bonds.values())
+        assert char.current_sanity is not None
+        assert char.current_sanity >= 0
+
+    def test_current_sanity_is_floored_at_zero(self, make_character):
+        char = make_character()
+        char.stats.update(power=4)  # maximum sanity 20
+        char.san_lost = 31
+        generate_derived_attributes(char)
+        assert char.sanity == 20
+        assert char.current_sanity == 0
+
+    def test_current_sanity_still_counts_down_normally_above_zero(self, make_character):
+        char = make_character()
+        char.stats.update(power=12)
+        char.san_lost = 25
+        generate_derived_attributes(char)
+        assert char.current_sanity == 35
+
+    def test_occult_is_deliberately_uncapped(self, make_character):
+        """A decision, not an oversight: the damaged-veteran bonuses stack past 99%."""
+        char = self._fragile(make_character)
+        char.skills["occult"] = 90
+        for effect in (extreme_violence_changes, things_man_was_not_meant_to_know_changes):
+            effect(char, [])
+        assert char.skills["occult"] == 120  # 90 + 10 + 20

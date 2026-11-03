@@ -18,6 +18,11 @@ logger = logging.getLogger("dggen")
 # Experience starts accruing the year the agent turns 25 (AH p.38).
 VETERANCY_START_AGE = 25
 
+# Floors for what ageing and damage can take away: no stat or bond is ever driven to zero.
+# (Occult is deliberately *not* capped above: the damaged-veteran bonuses stack past 99%.)
+MIN_STAT = 1
+MIN_BOND = 1
+
 
 def skill_checks_at_age(
     age: int,
@@ -80,7 +85,7 @@ def veterancy_stat_losses(char: Character) -> None:
     losses = stat_losses_at_age(char.age)
     while losses and not all(char.stats[stat] <= 1 for stat in PHYSICAL_STATS):
         target = char.rng.pick(PHYSICAL_STATS)
-        if char.stats[target] > 1:
+        if char.stats[target] > MIN_STAT:
             char.stats[target] -= 1
             losses -= 1
             logger.debug(
@@ -122,10 +127,10 @@ def extreme_violence_changes(char: Character, damage: list[str]) -> None:
     damage.append("• Extreme Violence")
     char.skills["occult"] += 10
     char.san_lost += 5
-    char.stats["charisma"] -= 3
+    char.stats["charisma"] = max(MIN_STAT, char.stats["charisma"] - 3)
     for i in range(char.profession.bonds):
         if i in char.bonds:
-            char.bonds[i] -= 3
+            char.bonds[i] = max(MIN_BOND, char.bonds[i] - 3)
     char.adapted_to_violence = 3
 
 
@@ -133,7 +138,7 @@ def captivity_or_imprisonment_changes(char: Character, damage: list[str]) -> Non
     damage.append("• Captivity or Imprisonment")
     char.skills["occult"] += 10
     char.san_lost += 5
-    char.stats["power"] -= 3
+    char.stats["power"] = max(MIN_STAT, char.stats["power"] - 3)
     char.adapted_to_helplessness = 3
 
 
@@ -143,7 +148,7 @@ def hard_experience_changes(char: Character, damage: list[str]) -> None:
     potential_bonus_skills = char.rng.sample(ALL_BONUS, len(ALL_BONUS))
     apply_bonuses(char, potential_bonus_skills, 5, 10, 90)
     char.san_lost += 5
-    del char.bonds[char.profession.bonds - 1]
+    char.bonds.pop(char.profession.bonds - 1, None)  # a profession with no bonds has none to lose
 
 
 def things_man_was_not_meant_to_know_changes(char: Character, damage: list[str]) -> None:
