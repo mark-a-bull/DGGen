@@ -65,8 +65,9 @@ class TestSkillChecksAtAge:
 class TestDerivedAttributes:
     # (strength, constitution, power) -> (hit points, willpower, sanity, breaking point).
     # Expected values are written out, not recomputed with the production formula, so a change to
-    # the formula fails here. STR + CON is even in every row: how a half-point of hit points
-    # rounds is an open rules question (review item B9) that these deliberately don't pin down.
+    # the formula fails here. Half-points of hit points round UP (ordinary rounding), not to the
+    # nearest even number as Python's round() does, so 13/2 is 7 and 15/2 is 8; the rows with an
+    # odd STR + CON below are the ones that matter.
     @pytest.mark.parametrize(
         ("strength", "constitution", "power", "expected"),
         [
@@ -76,6 +77,12 @@ class TestDerivedAttributes:
             (13, 15, 12, (14, 12, 60, 48)),
             (18, 18, 18, (18, 18, 90, 72)),
             (3, 3, 3, (3, 3, 15, 12)),
+            # a half-point: 6.5 -> 7 (round() gives 6), 7.5 -> 8, 10.5 -> 11, 3.5 -> 4, 17.5 -> 18
+            (7, 6, 10, (7, 10, 50, 40)),
+            (8, 7, 10, (8, 10, 50, 40)),
+            (11, 10, 10, (11, 10, 50, 40)),
+            (3, 4, 10, (4, 10, 50, 40)),
+            (17, 18, 10, (18, 10, 50, 40)),
         ],
     )
     def test_formulas(self, make_character, strength, constitution, power, expected):
@@ -85,6 +92,23 @@ class TestDerivedAttributes:
         got = (char.hitpoints, char.willpower, char.sanity, char.breaking_point)
         assert got == expected
         assert char.current_sanity is None  # nothing lost yet
+
+    @pytest.mark.parametrize("strength", range(3, 19))
+    @pytest.mark.parametrize("constitution", range(3, 19))
+    def test_hit_points_are_the_average_with_a_half_point_rounded_up(
+        self, make_character, strength, constitution
+    ):
+        """Over every possible STR/CON pair: even sums halve exactly, odd sums round up."""
+        char = make_character()
+        char.stats.update(strength=strength, constitution=constitution)
+        generate_derived_attributes(char)
+        total = strength + constitution
+        expected = total // 2 if total % 2 == 0 else (total + 1) // 2
+        assert char.hitpoints == expected
+        assert 2 * char.hitpoints - total in (
+            0,
+            1,
+        )  # never off by more than half a point, never down
 
     def test_current_sanity_is_max_sanity_less_what_was_lost(self, make_character):
         char = make_character()

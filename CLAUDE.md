@@ -183,6 +183,10 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
   the only skill that does, and experience checks never cause it) — `test_occult_is_deliberately_uncapped` documents
   that this is a decision, so don't "fix" it without asking.
 
+  Hit points are the average of STR and CON with a half-point rounded **up** (`(STR + CON + 1) // 2`), as ordinary
+  rounding does. Don't use `round()`: Python rounds halves to the nearest even number, which gave 13/2 → 6 but 15/2 → 8
+  (a test checks all 256 STR/CON pairs).
+
   `rules/education.py` and `rules/employer.py` both auto-fill a sheet field from a JSON data file (`education.json`,
   `employers.json`) unless an explicit override (`--education`/`--employer`) or a "don't" flag
   (`--no-education`/`--no-employer`) is given, and both look up the profession by **display label**, lowercased

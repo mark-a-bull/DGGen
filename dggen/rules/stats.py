@@ -31,7 +31,9 @@ def generate_stats(char: Character) -> None:
 
 
 def generate_derived_attributes(char: Character) -> None:
-    char.hitpoints = round((char.stats["strength"] + char.stats["constitution"]) / 2.0)
+    # Average of STR and CON, a half-point rounded up. (Not round(): Python rounds halves to the
+    # nearest even number, which would make 13/2 come out 6 but 15/2 come out 8.)
+    char.hitpoints = (char.stats["strength"] + char.stats["constitution"] + 1) // 2
     char.willpower = char.stats["power"]
     char.sanity = char.stats["power"] * 5
     if char.san_lost:
