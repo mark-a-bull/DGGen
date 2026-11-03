@@ -62,8 +62,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--verbosity",
         action="count",
         default=0,
-        help="specify up to three times to increase verbosity, "
-        "i.e. -v to see warnings, -vv for information messages, or -vvv for debug messages.",
+        help="specify up to three times to increase verbosity, i.e. -v for information "
+        "messages, -vv for debug messages, or -vvv for debug messages with timestamps and source "
+        "locations. Warnings and errors are always shown, on stderr.",
     )
     parser.add_argument("-V", "--version", action="version", version=__version__)
     doc.add_argument(
@@ -381,11 +382,12 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     if options.type and (candidates := ambiguous_keys(data.professions, options.type)):
-        # Not a logger.warning: that is hidden unless -v is given, and this changes the output.
-        print(
-            f"note: {options.type!r} matches {len(candidates)} professions "
-            f"({', '.join(candidates)}); using {candidates[0]}. Pass a key to choose.",
-            file=sys.stderr,
+        logger.warning(
+            "%r matches %d professions (%s); using %s. Pass a key to choose.",
+            options.type,
+            len(candidates),
+            ", ".join(candidates),
+            candidates[0],
         )
 
     sinks: list[Sink] = [TextSink()]
