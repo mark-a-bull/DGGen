@@ -13,7 +13,8 @@ every seeded character (and the golden snapshot), so callers must say which one 
 
 - `pick(seq)`             one uniform element        (`random.choice`)
 - `weighted(seq, weights)` one weighted element       (`random.choices(..., k=1)[0]`; with no
-                                                      weights it is still the `choices` draw)
+                                                      weights it is still the `choices` draw;
+                                                      `cum_weights=` takes running totals)
 - `roll(low, high)`        an int in [low, high]      (`random.randint`)
 - `sample(seq, k)`         k distinct elements        (`random.sample`)
 - `shuffle(items)`         in place                   (`random.shuffle`)
@@ -42,8 +43,16 @@ class Rng:
     def pick(self, seq: Sequence[T]) -> T:
         return self._random.choice(seq)
 
-    def weighted(self, values: Sequence[T], weights: Sequence[float] | None = None) -> T:
-        return self._random.choices(values, weights=weights, k=1)[0]
+    def weighted(
+        self,
+        values: Sequence[T],
+        weights: Sequence[float] | None = None,
+        *,
+        cum_weights: Sequence[float] | None = None,
+    ) -> T:
+        """One element, by relative `weights` or by precomputed running totals `cum_weights`
+        (the same draw; use the latter to avoid re-summing a very long list on every call)."""
+        return self._random.choices(values, weights=weights, cum_weights=cum_weights, k=1)[0]
 
     def roll(self, low: int, high: int) -> int:
         return self._random.randint(low, high)

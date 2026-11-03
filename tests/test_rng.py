@@ -8,6 +8,7 @@ even for a uniform pick), so that equivalence is pinned here rather than assumed
 from __future__ import annotations
 
 import random
+from itertools import accumulate
 
 import pytest
 
@@ -68,3 +69,21 @@ class TestTheApiIsDeliberatelyNarrow:
 
     def test_bits_gives_a_seed_for_derived_generators(self):
         assert Rng(5).bits(32) == random.Random(5).getrandbits(32)
+
+
+@pytest.mark.parametrize("seed", range(10))
+class TestCumulativeWeights:
+    """`cum_weights` lets a caller precompute the running totals once (the towns pool has 25,000
+    entries); it must draw exactly as the relative `weights` form does."""
+
+    WEIGHTS = (5, 1, 1, 8, 2, 1, 3)
+
+    def test_matches_the_stdlib_and_the_relative_form(self, seed):
+        cum = list(accumulate(self.WEIGHTS))
+        expected = random.Random(seed).choices(ITEMS, cum_weights=cum, k=1)[0]
+        assert Rng(seed).weighted(ITEMS, cum_weights=cum) == expected
+        assert Rng(seed).weighted(ITEMS, self.WEIGHTS) == expected
+
+    def test_giving_both_forms_is_an_error_as_in_the_stdlib(self, seed):
+        with pytest.raises(TypeError):
+            Rng(seed).weighted(ITEMS, [1] * 7, cum_weights=[1, 2, 3, 4, 5, 6, 7])

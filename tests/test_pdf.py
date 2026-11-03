@@ -13,7 +13,7 @@ from pypdf import PdfReader
 from pypdf.generic import Destination
 from reportlab.pdfbase import pdfmetrics
 
-from dggen import config
+from dggen import appearance, config
 from dggen.cli import main
 from dggen.layout import load_layout
 from dggen.pdf import SheetWriter
@@ -235,7 +235,7 @@ def test_long_name_profession_and_nationality_stay_inside_their_boxes(tmp_path):
     for text, x, y, size in drawn:
         key = (round(x), round(y))
         if key in boxes:
-            width = pdfmetrics.stringWidth(text, config.DEFAULT_FONT, size)
+            width = pdfmetrics.stringWidth(text, appearance.DEFAULT_FONT, size)
             found[key] = (x + width, boxes[key], size)
     assert set(found) == set(boxes), f"fields not found on the page: {set(boxes) - set(found)}"
     for key, (right, limit, size) in found.items():

@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from dggen import config
+from dggen import appearance, config
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -45,12 +45,12 @@ def wheel_names(tmp_path_factory):
 def _runtime_assets():
     """Every file config points at, as a path relative to the package root."""
     paths = [
-        config.DEFAULT_FONT_FILE,
-        config.OCR_FONT_FILE,
-        config.FRONT_COVER_IMAGE,
-        config.INSIDE_COVER_IMAGE,
-        config.SHEET_FRONT_IMAGE,
-        config.SHEET_BACK_IMAGE,
+        appearance.DEFAULT_FONT_FILE,
+        appearance.OCR_FONT_FILE,
+        appearance.FRONT_COVER_IMAGE,
+        appearance.INSIDE_COVER_IMAGE,
+        appearance.SHEET_FRONT_IMAGE,
+        appearance.SHEET_BACK_IMAGE,
         config.DEFAULT_PROFESSIONS,
         config.DEFAULT_EQUIPMENT,
         config.DEFAULT_DISTINGUISHING,

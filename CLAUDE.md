@@ -36,7 +36,7 @@ once before the veteran-generation recipes in the README.
 ### Tests
 
 ```sh
-pytest -q                                   # whole suite (fast; ~1s)
+pytest -q                                   # whole suite (~30s: PDF rendering and a wheel build)
 pytest tests/test_text.py::TestFormatName   # a single class
 pytest -k veterancy                         # by keyword
 ```
@@ -135,7 +135,10 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
   the lists inline — this is deliberate: it's the boundary between "just add a line to a text file" (no code-shape
   knowledge needed, `dggen/data/pools/README.md` is the whole contract) and "understand the wiring" (which profession
   draws from which pool, with what weights). `Pools.choice()`/`.values()` also accept an arbitrary file path instead
-  of a registered id, so `--towns /my/custom-towns.csv` still works for a list that isn't checked into the repo.
+  of a registered id, so `--towns /my/custom-towns.csv` still works for a list that isn't checked into the repo. Parsed
+  files are cached per process, keyed on (path, mtime, size) — the 25,000-row towns file used to dominate `load_data` and
+  most of the suite — as immutable tuples with the running weight totals precomputed (`Rng.weighted(cum_weights=)`);
+  `Pools.values()` returns a fresh list so callers can't corrupt the cache.
 
 - **Domain/rules** (`character.py`, `rules/`, `constants.py`, `equipped.py`): `Character` is the aggregate — typed
   generation state (`stats`, `skills`, `bonds`, derived attributes, demographics, `town`, `weapons`, …). It knows
@@ -233,8 +236,9 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
 
 - **Interface** (`cli.py`, `logging_setup.py`, `config.py`): argparse (`build_parser` describes the flags,
   `validate_options` holds the cross-flag rules, `get_options` does both, `sources_from` / `generation_from` build
-  the option dataclasses) + `main`, which wires roster → sinks; `config.py` centralises
-  page geometry, colours, fonts, and all asset/data paths.
+  the option dataclasses) + `main`, which wires roster → sinks; `config.py` is where the data lives and the default data
+  files (`DATA_DIR`, overridable with `DGGEN_DATA_DIR` before import), and `appearance.py` is how the sheet looks (page
+  geometry, colours, fonts, background images).
 
 **Pure helpers** (`text.py`) — `parse_date`, `format_name`, `age_on`, `fill_template`, `shrink_to_fit` — are
 reportlab/faker-free and are the cheapest, highest-value things to unit test. `shrink_to_fit` takes a `measure`
