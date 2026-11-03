@@ -5,6 +5,12 @@ Kept dependency-free so both `character.py` and `rules/*` can import it without 
 
 from __future__ import annotations
 
+# The age range a character is drawn from unless told otherwise (the CLI's -a/-A and
+# GenerationOptions share these, so they cannot drift apart), and the youngest age -a accepts.
+DEFAULT_MIN_AGE = 25
+DEFAULT_MAX_AGE = 55
+ADULT_AGE = 18
+
 MONTHS = ("JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC")
 
 # Chance (percent) that a profession's suggested bonus skill is considered for a boost.

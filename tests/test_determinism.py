@@ -77,3 +77,10 @@ def test_the_real_clock_is_never_read_when_a_date_is_supplied(make_character, mo
     )
     assert char.today == date(2020, 1, 1)
     assert char.age == 29
+
+
+def test_default_ages_stay_within_the_documented_range(make_character):
+    """Across many seeds the default draw reaches both ends of 25-55 and never leaves them."""
+    ages = [make_character(seed=seed).age for seed in range(400)]
+    assert min(ages) == 25
+    assert max(ages) == 55

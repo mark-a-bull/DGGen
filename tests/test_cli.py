@@ -7,6 +7,8 @@ from datetime import date, timedelta
 import pytest
 
 from dggen.cli import build_parser, get_options, main, validate_options
+from dggen.constants import DEFAULT_MAX_AGE, DEFAULT_MIN_AGE
+from dggen.options import GenerationOptions
 
 
 @pytest.mark.parametrize(
@@ -127,3 +129,35 @@ def test_an_unparseable_birthdate_is_a_usage_error(capsys):
         main(["-t", "agent", "--birthdate", "not a date"])
     assert exc.value.code == 2
     assert "Invalid date" in capsys.readouterr().err
+
+
+class TestAgeRange:
+    """One definition of the default age range, and a floor on the minimum."""
+
+    def test_the_cli_and_the_library_share_one_default(self):
+        options = get_options(["-t", "agent"])
+        defaults = GenerationOptions()
+        assert (options.min_age, options.max_age) == (DEFAULT_MIN_AGE, DEFAULT_MAX_AGE)
+        assert (defaults.min_age, defaults.max_age) == (DEFAULT_MIN_AGE, DEFAULT_MAX_AGE)
+        assert (DEFAULT_MIN_AGE, DEFAULT_MAX_AGE) == (25, 55)
+
+    def test_the_help_text_states_the_default(self):
+        help_text = " ".join(build_parser().format_help().split())  # argparse wraps lines
+        assert "defaults to 25" in help_text
+        assert "defaults to 55" in help_text
+
+    @pytest.mark.parametrize("below", ["17", "10", "0", "-5"])
+    def test_a_minimum_age_below_18_is_a_usage_error(self, below, capsys):
+        with pytest.raises(SystemExit) as exc:
+            get_options(["-t", "agent", "-a", below, "-A", "60"])
+        assert exc.value.code == 2
+        assert "18" in capsys.readouterr().err
+
+    @pytest.mark.parametrize("ok", ["18", "21", "25"])
+    def test_a_minimum_age_of_18_or_more_is_accepted(self, ok):
+        assert get_options(["-t", "agent", "-a", ok]).min_age == int(ok)
+
+    def test_the_maximum_is_still_checked_against_the_minimum(self, capsys):
+        with pytest.raises(SystemExit):
+            get_options(["-t", "agent", "-a", "30", "-A", "20"])
+        assert "min-age" in capsys.readouterr().err

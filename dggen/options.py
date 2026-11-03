@@ -13,6 +13,7 @@ from datetime import date
 from pathlib import Path
 
 from dggen import config
+from dggen.constants import DEFAULT_MAX_AGE, DEFAULT_MIN_AGE
 
 
 @dataclass(frozen=True)
@@ -44,8 +45,8 @@ class GenerationOptions:
     employer_override: str | None = None
     name_override: str | None = None
     education_override: str | None = None
-    min_age: int = 24
-    max_age: int = 55
+    min_age: int = DEFAULT_MIN_AGE
+    max_age: int = DEFAULT_MAX_AGE
     birth_year: int | None = None
     birthdate: date | None = None
     nationality: str | None = None

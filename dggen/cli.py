@@ -10,6 +10,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from dggen import __version__, config
+from dggen.constants import ADULT_AGE, DEFAULT_MAX_AGE, DEFAULT_MIN_AGE
 from dggen.data import (
     InvalidLocaleError,
     ProfessionNotFoundError,
@@ -246,8 +247,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--min-age",
         action="store",
         type=int,
-        help="Minimum age of characters - defaults to %(default)s.",
-        default=25,
+        help="Minimum age of characters (at least 18) - defaults to %(default)s.",
+        default=DEFAULT_MIN_AGE,
     )
     gen.add_argument(
         "-A",
@@ -255,7 +256,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store",
         type=int,
         help="Maximum age of characters - defaults to %(default)s.",
-        default=55,
+        default=DEFAULT_MAX_AGE,
     )
     gen.add_argument(
         "-n",
@@ -291,8 +292,8 @@ def validate_options(options: argparse.Namespace, parser: argparse.ArgumentParse
             "-t/--type is required unless --pdf is given (otherwise this would print every "
             "profession's full roster as text). Pass --pdf to generate full rosters as before.",
         )
-    if options.min_age < 0:
-        parser.error(f"-a/--min-age must not be negative, got {options.min_age}")
+    if options.min_age < ADULT_AGE:
+        parser.error(f"-a/--min-age must be at least {ADULT_AGE}, got {options.min_age}")
     if options.min_age > options.max_age:
         parser.error(
             f"-a/--min-age ({options.min_age}) must not exceed -A/--max-age ({options.max_age})",

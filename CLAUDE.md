@@ -97,8 +97,11 @@ the `[dev]` extra). `tests/test_style.py` runs `ruff check` and `ruff format --c
 violated. To fix: `ruff check --fix dggen tests generator.py` for the auto-fixable rules and
 `ruff format dggen tests generator.py` for layout. Line endings are pinned to LF by `.gitattributes` /
 `.editorconfig`, independent of each contributor's `core.autocrlf`. Imports go at the top of the module (including in
-tests); exception classes end in `Error`. `--min-age` defaults to 25 on the CLI but `Character.generate(min_age=...)`
-defaults to 24 — left alone because unifying them changes every seeded character and the golden snapshot with it.
+tests); exception classes end in `Error`. The default age range is one definition, `DEFAULT_MIN_AGE`/`DEFAULT_MAX_AGE`
+(25–55) in `constants.py`, used by both the CLI's `-a`/`-A` and `GenerationOptions` (a test checks they agree); `-a`
+below `ADULT_AGE` (18) is a usage error. Changing the range changes how many bits `randint` draws, so *every* seeded
+character moves, not just its age — regenerate both golden snapshots and review them by invariant (ages in range,
+education year consistent with age) rather than by eye.
 
 ### Security notes
 
