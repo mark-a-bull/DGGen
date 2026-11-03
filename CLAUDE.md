@@ -234,6 +234,14 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
   consume them through four methods (`begin`, `start_profession`, `add`, `finish`), so a new output format is one
   more class. `summary.py` renders the text view; `Profession.roster_label()` gives the roster/bookmark label.
 
+- **Public API** (`dggen/__init__.py`): `__all__` is the supported surface (`load_data`, `DataSources`,
+  `GenerationOptions`, `Rng`, `generate_roster`/`generate_character`, `find_profession`, `format_details`,
+  `to_front_fields`/`to_back_fields`, `Character`/`Data`/`Profession`, and the errors a caller catches). Names load
+  lazily (PEP 562 `__getattr__`), so `import dggen` stays cheap and does not import reportlab or Faker; an
+  `if TYPE_CHECKING` block gives type checkers the real imports. Adding or removing a name means editing `_EXPORTS`, the
+  `__all__` list and the `PUBLIC` table in `tests/test_public_api.py`, which pins all three. The package ships
+  `py.typed` (declared under `package-data`; `tests/test_packaging.py` checks it is in the wheel).
+
 - **Interface** (`cli.py`, `logging_setup.py`, `config.py`): argparse (`build_parser` describes the flags,
   `validate_options` holds the cross-flag rules, `get_options` does both, `sources_from` / `generation_from` build
   the option dataclasses) + `main`, which wires roster → sinks; `config.py` is where the data lives and the default data

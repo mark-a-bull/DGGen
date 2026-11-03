@@ -97,3 +97,8 @@ def test_pillow_is_floored_at_a_release_without_known_advisories(path):
     assert re.fullmatch(
         r"pillow>=13(\.\d+)*\s*;\s*python_version\s*>=\s*['\"]3\.11['\"]", requirement
     )
+
+
+def test_the_wheel_marks_the_package_as_typed(wheel_names):
+    """`py.typed` (PEP 561) is what tells type checkers to use dggen's inline annotations."""
+    assert "dggen/py.typed" in wheel_names

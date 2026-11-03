@@ -159,6 +159,28 @@ If you'd prefer to get the veterancy experience checks and stat losses, but not 
 `--no-damaged` flag. This flag has no effect if veterancy is not enabled. This is probably the right thing to do if you
 need veterans who are not DG agents.
 
+## Using DGGen from Python
+
+The generator is also a library. Everything in `dggen.__all__` is the supported API (the package ships a
+`py.typed` marker, so type checkers use its annotations):
+
+```python
+import dggen
+
+data = dggen.load_data(dggen.DataSources())          # read the bundled data files
+rng = dggen.Rng(42)                                   # one seed reproduces everything
+agent = dggen.find_profession(data.professions, "Federal Agent")
+options = dggen.GenerationOptions(name_override="Dr. Ada Quill")
+
+for profession, character in dggen.generate_roster(data, rng, [agent], options, count=3):
+    print(dggen.format_details(character))            # readable text
+    fields = dggen.to_front_fields(character)          # or the sheet's field values
+```
+
+`dggen.DataSources` points at your own profession, equipment, education or employer files and pool lists;
+`dggen.GenerationOptions` carries the same overrides as the command-line flags. Problems with the data files
+raise `dggen.DataError` (or `dggen.PoolError`, `dggen.TemplateError`) at `load_data`, before any character is made.
+
 ## Credits
 
 The following character sheet images were graciously provided by Simeon Cogswell, designer for Delta Green:

@@ -30,7 +30,7 @@ packages = ["dggen", "dggen.rules"]
 # dggen.config.DATA_DIR). They are not Python packages, so they must be listed as package data
 # or they are silently left out of the wheel.
 [tool.setuptools.package-data]
-dggen = ["data/**/*"]
+dggen = ["py.typed", "data/**/*"]
 
 [tool.setuptools.exclude-package-data]
 # Reference/template PDFs kept in the repo for humans; nothing at runtime reads them.
