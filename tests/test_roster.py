@@ -66,7 +66,7 @@ class TestGenerateRoster:
 
         def names(seed):
             rng = Rng(seed)
-            data = load_data(DataSources(), rng)
+            data = load_data(DataSources())
             professions = _professions(data, "agent", number=3)
             return [c.name for _, c in generate_roster(data, rng, professions, GenerationOptions())]
 

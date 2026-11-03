@@ -10,20 +10,22 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from dggen.errors import DataError
+from dggen.layout import load_layout
 from dggen.pools import PoolError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from dggen.layout import SheetLayout
     from dggen.models import Data, WeaponRef
 
 
-class DataError(Exception):
-    """The data files are inconsistent: a reference points at something that doesn't exist."""
+def validate_data(data: Data, layout: SheetLayout | None = None) -> None:
+    """Raise `DataError` listing every dangling reference in `data`; return quietly if none.
 
-
-def validate_data(data: Data) -> None:
-    """Raise `DataError` listing every dangling reference in `data`; return quietly if none."""
+    `layout` is the sheet layout skills are checked against (default: the bundled one).
+    """
     problems: list[str] = []
 
     def check_pool(where: str, ref: str) -> None:
@@ -35,6 +37,7 @@ def validate_data(data: Data) -> None:
     _education(data, problems, check_pool)
     _employer(data, problems, check_pool)
     _equipment(data, problems)
+    _skills(data, problems, layout or load_layout())
 
     if problems:
         count = len(problems)
@@ -95,3 +98,15 @@ def _equipment(data: Data, problems: list[str]) -> None:
         for key, profession in data.professions.items()
         if profession.equipment_kit and profession.equipment_kit not in data.kits
     )
+
+
+def _skills(data: Data, problems: list[str], layout: SheetLayout) -> None:
+    """Every skill a profession names needs a place on the sheet, or it silently never prints."""
+    for key, profession in data.professions.items():
+        skills = profession.skills
+        names = [*skills.fixed, *skills.possible, *skills.bonus]
+        problems.extend(
+            f"profession {key!r}: skill {name!r} has no field on the sheet layout"
+            for name in dict.fromkeys(names)
+            if name not in layout.fields
+        )

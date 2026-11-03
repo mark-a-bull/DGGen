@@ -27,7 +27,7 @@ class TestGenerateEmployer:
         real employer/division; auto-generation must never overwrite that."""
 
         sources = DataSources(professions=config.DATA_DIR / "professions-fbi.json")
-        fbi_data = load_data(sources, Rng(0))
+        fbi_data = load_data(sources)
         prof = find_profession(fbi_data.professions, "cid")
         char = Character.generate(data=fbi_data, rng=Rng(1), sex="male", profession=prof)
         assert char.employer == "FBI, CID"

@@ -17,6 +17,7 @@ from dggen.data import (
     find_profession,
     load_data,
 )
+from dggen.errors import DataError
 from dggen.logging_setup import init_logger
 from dggen.options import DataSources, GenerationOptions
 from dggen.pools import PoolError
@@ -24,7 +25,6 @@ from dggen.rng import Rng
 from dggen.roster import generate_roster
 from dggen.sinks import PdfSink, Sink, TextSink
 from dggen.text import TemplateError, parse_date
-from dggen.validate import DataError
 
 logger = logging.getLogger("dggen")
 
@@ -62,8 +62,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--verbosity",
         action="count",
         default=0,
-        help="specify up to three times to increase verbosity, "
-        "i.e. -v to see warnings, -vv for information messages, or -vvv for debug messages.",
+        help="specify up to three times to increase verbosity, i.e. -v for information "
+        "messages, -vv for debug messages, or -vvv for debug messages with timestamps and source "
+        "locations. Warnings and errors are always shown, on stderr.",
     )
     parser.add_argument("-V", "--version", action="version", version=__version__)
     doc.add_argument(
@@ -327,7 +328,6 @@ def sources_from(options: argparse.Namespace) -> DataSources:
         surnames=options.surnames,
         towns=options.towns,
         names_locale=options.names,
-        seed=options.seed,
     )
 
 
@@ -363,7 +363,7 @@ def main(argv: list[str] | None = None) -> int:
     rng = Rng(options.seed)
 
     try:
-        data = load_data(sources_from(options), rng)
+        data = load_data(sources_from(options))
         professions = (
             [find_profession(data.professions, options.type)]
             if options.type
@@ -382,11 +382,12 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     if options.type and (candidates := ambiguous_keys(data.professions, options.type)):
-        # Not a logger.warning: that is hidden unless -v is given, and this changes the output.
-        print(
-            f"note: {options.type!r} matches {len(candidates)} professions "
-            f"({', '.join(candidates)}); using {candidates[0]}. Pass a key to choose.",
-            file=sys.stderr,
+        logger.warning(
+            "%r matches %d professions (%s); using %s. Pass a key to choose.",
+            options.type,
+            len(candidates),
+            ", ".join(candidates),
+            candidates[0],
         )
 
     sinks: list[Sink] = [TextSink()]

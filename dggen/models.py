@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from dggen.pools import Pools
+from dggen.rng import Rng
 from dggen.text import fill_template
 
 # Placeholders each kind of template may use (see rules/education.py and rules/employer.py).
@@ -297,12 +298,16 @@ class EmployerData:
 
 @dataclass
 class Data:
-    """Everything loaded from disk, ready for generation. Name/town providers are callables."""
+    """Everything loaded from disk, ready for generation.
 
-    male_given_names: Callable[[], str]
-    female_given_names: Callable[[], str]
-    family_names: Callable[[], str]
-    towns: Callable[[], str]
+    Holds no randomness: the name/town providers take the `Rng` to draw from at call time, so one
+    loaded `Data` can serve any number of seeds and a seed alone reproduces a roster.
+    """
+
+    male_given_names: Callable[[Rng], str]
+    female_given_names: Callable[[Rng], str]
+    family_names: Callable[[Rng], str]
+    towns: Callable[[Rng], str]
     professions: dict[str, Profession]
     kits: dict[str, Kit]
     weapons: dict[str, Weapon]

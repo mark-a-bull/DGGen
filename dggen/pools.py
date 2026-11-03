@@ -19,9 +19,10 @@ way, and caches the result.
 from __future__ import annotations
 
 import csv
+import functools
 import itertools
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 if TYPE_CHECKING:
     from dggen.rng import Rng
@@ -48,9 +49,17 @@ class UnknownPoolError(PoolError):
         self.ref = ref
 
 
+class _Parsed(NamedTuple):
+    """One parsed pool file. Everything is a tuple so the cached copy can be shared safely."""
+
+    values: tuple[str, ...]
+    weights: tuple[int, ...] | None
+    cum_weights: tuple[int, ...] | None  # running totals, so a draw never re-sums the weights
+
+
 class Pools:
     def __init__(self, root: Path) -> None:
-        self._cache: dict[str, tuple[list[str], list[int] | None]] = {}
+        self._cache: dict[str, _Parsed] = {}
         if root.is_dir():
             for path in sorted(root.rglob("*")):
                 if path.is_file() and path.suffix in _POOL_EXTENSIONS:
@@ -60,7 +69,7 @@ class Pools:
     def ids(self) -> list[str]:
         return sorted(self._cache)
 
-    def _resolve(self, ref: str) -> tuple[list[str], list[int] | None]:
+    def _resolve(self, ref: str) -> _Parsed:
         if ref in self._cache:
             return self._cache[ref]
         path = Path(ref)
@@ -76,18 +85,25 @@ class Pools:
         self._resolve(ref)
 
     def values(self, ref: str) -> list[str]:
-        """The pool's values, in file order, ignoring any weights."""
-        values, _weights = self._resolve(ref)
-        return values
+        """The pool's values, in file order, ignoring any weights (a fresh list each call)."""
+        return list(self._resolve(ref).values)
 
     def choice(self, ref: str, rng: Rng) -> str:
         """One random value, weighted if the pool has weights, uniform otherwise."""
-        values, weights = self._resolve(ref)
-        cum_weights = list(itertools.accumulate(weights)) if weights else None
-        return rng.choices(values, cum_weights=cum_weights, k=1)[0]
+        parsed = self._resolve(ref)
+        return rng.weighted(parsed.values, cum_weights=parsed.cum_weights)
 
 
-def _read_pool_file(path: Path) -> tuple[list[str], list[int] | None]:
+def _read_pool_file(path: Path) -> _Parsed:
+    """Parse a pool file, once per process: the key is the file's identity (path, mtime, size),
+    so an edited file is read again. The 25,000-row towns file dominated `load_data`."""
+    stat = path.stat()
+    return _read_cached(str(path), stat.st_mtime_ns, stat.st_size)
+
+
+@functools.lru_cache(maxsize=128)
+def _read_cached(path_text: str, _mtime_ns: int, _size: int) -> _Parsed:
+    path = Path(path_text)
     try:
         # utf-8-sig: spreadsheets and Notepad like to prepend a BOM, which would otherwise end
         # up glued to the first value.
@@ -101,7 +117,11 @@ def _read_pool_file(path: Path) -> tuple[list[str], list[int] | None]:
         raise InvalidPoolError(f"{path}: the pool has no values")
     if weights is not None and not any(weights):
         raise InvalidPoolError(f"{path}: the weights are all zero, so nothing could ever be chosen")
-    return values, weights
+    return _Parsed(
+        values=tuple(values),
+        weights=tuple(weights) if weights is not None else None,
+        cum_weights=tuple(itertools.accumulate(weights)) if weights is not None else None,
+    )
 
 
 def _read_txt_pool(path: Path) -> list[str]:

@@ -19,11 +19,11 @@ def damage_bonus(strength: int) -> int:
 
 
 def generate_stats(char: Character) -> None:
-    rolled = [[sum(sorted([char.rng.randint(1, 6) for _ in range(4)])[1:]) for _ in range(6)]]
+    rolled = [[sum(sorted([char.rng.roll(1, 6) for _ in range(4)])[1:]) for _ in range(6)]]
     # Copy the chosen pool before shuffling: choice() may return one of the shared STAT_POOLS
     # lists, and shuffling in place would mutate that module constant (breaking reproducibility
     # across characters that share a seed).
-    pool = list(char.rng.choice(STAT_POOLS + rolled))
+    pool = list(char.rng.pick(STAT_POOLS + rolled))
     char.rng.shuffle(pool)
     for score, stat in zip(pool, STATS, strict=False):
         char.stats[stat] = score

@@ -16,14 +16,16 @@ import zipfile
 from pathlib import Path
 
 import pytest
+from packaging.requirements import Requirement
 
-from dggen import config
+import dggen
+from dggen import appearance, config
 
 REPO = Path(__file__).resolve().parent.parent
 
 
 @pytest.fixture(scope="module")
-def wheel_names(tmp_path_factory):
+def built_wheel(tmp_path_factory):
     src = tmp_path_factory.mktemp("src")
     # Build from a scratch copy so the build's build/ and *.egg-info don't land in the repo.
     for name in ("pyproject.toml", "README.md", "LICENSE.md"):
@@ -38,22 +40,28 @@ def wheel_names(tmp_path_factory):
     )
     wheels = list(out.glob("dggen-*.whl"))
     assert result.returncode == 0 and wheels, f"wheel build failed:\n{result.stderr[-1500:]}"
-    with zipfile.ZipFile(wheels[0]) as wheel:
+    return wheels[0]
+
+
+@pytest.fixture(scope="module")
+def wheel_names(built_wheel):
+    with zipfile.ZipFile(built_wheel) as wheel:
         return set(wheel.namelist())
 
 
 def _runtime_assets():
     """Every file config points at, as a path relative to the package root."""
     paths = [
-        config.DEFAULT_FONT_FILE,
-        config.OCR_FONT_FILE,
-        config.FRONT_COVER_IMAGE,
-        config.INSIDE_COVER_IMAGE,
-        config.SHEET_FRONT_IMAGE,
-        config.SHEET_BACK_IMAGE,
+        appearance.DEFAULT_FONT_FILE,
+        appearance.OCR_FONT_FILE,
+        appearance.FRONT_COVER_IMAGE,
+        appearance.INSIDE_COVER_IMAGE,
+        appearance.SHEET_FRONT_IMAGE,
+        appearance.SHEET_BACK_IMAGE,
         config.DEFAULT_PROFESSIONS,
         config.DEFAULT_EQUIPMENT,
         config.DEFAULT_DISTINGUISHING,
+        config.DEFAULT_SHEET_LAYOUT,
         config.DEFAULT_EDUCATION_DATA,
         config.DEFAULT_EMPLOYER_DATA,
     ]
@@ -96,3 +104,27 @@ def test_pillow_is_floored_at_a_release_without_known_advisories(path):
     assert re.fullmatch(
         r"pillow>=13(\.\d+)*\s*;\s*python_version\s*>=\s*['\"]3\.11['\"]", requirement
     )
+
+
+def test_the_wheel_marks_the_package_as_typed(wheel_names):
+    """`py.typed` (PEP 561) is what tells type checkers to use dggen's inline annotations."""
+    assert "dggen/py.typed" in wheel_names
+
+
+def test_the_requirements_file_mirrors_pyproject():
+    """pyproject.toml is the single source for the runtime dependencies; requirements.txt (used by
+    `pip install -r` and `pip-audit -r`) is a copy of it, so it must not drift."""
+    declared = sorted(str(Requirement(r)) for r in _declared("pyproject.toml"))
+    mirrored = sorted(str(Requirement(r)) for r in _declared("requirements.txt"))
+    assert mirrored == declared, "requirements.txt should contain exactly:\n" + "\n".join(declared)
+
+
+def test_the_version_has_a_single_source(built_wheel):
+    """It used to be written in both pyproject.toml and dggen/__init__.py."""
+    text = (REPO / "pyproject.toml").read_text(encoding="utf-8")
+    assert re.search(r'^dynamic = \["version"\]', text, re.MULTILINE)
+    assert not re.search(r'^version = "', text, re.MULTILINE)  # no second, static copy
+    with zipfile.ZipFile(built_wheel) as wheel:
+        name = next(n for n in wheel.namelist() if n.endswith(".dist-info/METADATA"))
+        metadata = wheel.read(name).decode("utf-8").replace("\r\n", "\n")
+    assert f"Version: {dggen.__version__}\n" in metadata

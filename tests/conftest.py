@@ -12,21 +12,21 @@ from dggen.rng import Rng
 
 @pytest.fixture
 def data():
-    """Real Data loaded from the bundled data files, using a seeded RNG for its providers."""
-    return load_data(DataSources(seed=0), Rng(0))
+    """Real Data loaded from the bundled data files (it holds no randomness)."""
+    return load_data(DataSources())
 
 
 @pytest.fixture
 def make_character():
     """Factory: build a fully deterministic Character at a given seed.
 
-    A single `Rng(seed)` drives both data loading (name/town providers) and generation, exactly
-    as the CLI does, so the same seed reproduces the whole character including its name.
+    One `Rng(seed)` drives generation, including the name and town draws, as the CLI does, so the
+    same seed reproduces the whole character.
     """
 
     def _make(profession="agent", seed=1234, sex="male", **kwargs):
         rng = Rng(seed)
-        loaded = load_data(DataSources(seed=seed), rng)
+        loaded = load_data(DataSources())
         prof = find_profession(loaded.professions, profession)
         return Character.generate(
             data=loaded,

@@ -1,7 +1,7 @@
 """Load the data files into a `Data` object, and look professions up by key or label.
 
-The name/town providers close over the seedable `Rng` so that even name and town selection is
-reproducible under a fixed seed.
+The loaded `Data` holds no randomness: its name/town providers take the `Rng` to draw from at call
+time, so name and town selection are reproducible under a fixed seed like everything else.
 """
 
 from __future__ import annotations
@@ -11,16 +11,17 @@ import json
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
 
-from faker import Faker
-
 from dggen import config
+from dggen.errors import DataError
 from dggen.models import Data, EducationData, EmployerData, Kit, Profession, Weapon
 from dggen.pools import Pools
-from dggen.validate import DataError, validate_data
+from dggen.validate import validate_data
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
     from pathlib import Path
+
+    from faker import Faker
 
     from dggen.options import DataSources
     from dggen.rng import Rng
@@ -92,41 +93,64 @@ def _reading(path: Path) -> Iterator[Any]:
         raise DataError(f"{path}: missing required key {exc.args[0]!r}") from exc
 
 
-def load_data(sources: DataSources, rng: Rng) -> Data:
+def _pool_provider(pools: Pools, ref: str) -> Callable[[Rng], str]:
+    """A provider drawing from a pool with whatever `Rng` it is handed."""
+
+    def provide(rng: Rng) -> str:
+        return pools.choice(ref, rng)
+
+    return provide
+
+
+def _faker_provider(faker: Faker, method: Callable[[], str]) -> Callable[[Rng], str]:
+    """A provider for Faker names that is driven by the caller's `Rng`.
+
+    Faker has its own generator, so it is reseeded from the `Rng` on every call. That keeps
+    `--names` inside the single seeded stream: the same seed reproduces the same names, with no
+    separate seed to pass around.
+    """
+
+    def provide(rng: Rng) -> str:
+        faker.seed_instance(rng.bits(32))
+        return method()
+
+    return provide
+
+
+def load_data(sources: DataSources) -> Data:
+    """Load every data file. The result holds no randomness (providers take an `Rng` per call)."""
     pools = Pools(config.POOLS_DIR)
 
     if sources.names_locale:
+        try:
+            # Faker is only needed for --names, so it is imported here rather than at module level:
+            # everything else (and `import dggen.cli`) works, and starts faster, without it.
+            from faker import Faker  # noqa: PLC0415
+        except ImportError as exc:
+            raise DataError(
+                "--names needs the 'faker' package, which is not installed (pip install faker)"
+            ) from exc
         try:
             faker = Faker(sources.names_locale)
         except AttributeError as exc:  # Faker's way of saying the locale doesn't exist
             raise InvalidLocaleError(
                 f"Unknown --names locale {sources.names_locale!r} (e.g. en_US, en_GB)"
             ) from exc
-        if sources.seed is not None:
-            faker.seed_instance(sources.seed)
-        male_given_names = faker.first_name_male
-        female_given_names = faker.first_name_female
-        family_names = faker.last_name
+        male_given_names = _faker_provider(faker, faker.first_name_male)
+        female_given_names = _faker_provider(faker, faker.first_name_female)
+        family_names = _faker_provider(faker, faker.last_name)
     else:
         # Validate eagerly: a bad --male-given-names/etc. should fail at startup, not partway
         # through generating a roster.
         pools.validate(sources.male_given_names)
         pools.validate(sources.female_given_names)
         pools.validate(sources.surnames)
-
-        def male_given_names() -> str:
-            return pools.choice(sources.male_given_names, rng)
-
-        def female_given_names() -> str:
-            return pools.choice(sources.female_given_names, rng)
-
-        def family_names() -> str:
-            return pools.choice(sources.surnames, rng)
+        male_given_names = _pool_provider(pools, sources.male_given_names)
+        female_given_names = _pool_provider(pools, sources.female_given_names)
+        family_names = _pool_provider(pools, sources.surnames)
 
     pools.validate(sources.towns)
-
-    def towns() -> str:
-        return pools.choice(sources.towns, rng)
+    towns = _pool_provider(pools, sources.towns)
 
     with _reading(sources.professions) as raw:
         professions = {k: Profession.from_dict(v) for k, v in raw.items()}

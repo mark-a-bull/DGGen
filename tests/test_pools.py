@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from dggen import pools as pools_module
 from dggen.pools import InvalidPoolError, PoolError, Pools, UnknownPoolError
 from dggen.rng import Rng
 
@@ -169,3 +170,35 @@ class TestMalformedFiles:
         path.write_text("town,pop\nNever,0\nAlways,5\n", encoding="utf-8")
         pools = Pools(tmp_path / "none")
         assert {pools.choice(str(path), Rng(seed)) for seed in range(30)} == {"Always"}
+
+
+class TestParsedFilesAreCached:
+    """Parsing the 25,000-row towns file dominated `load_data` (and so most of the test suite),
+    so each file is parsed once per process, keyed on its identity (path, mtime, size)."""
+
+    def test_the_same_file_is_parsed_once_across_pools_instances(self, pools_root):
+        pools_module._read_cached.cache_clear()
+        Pools(pools_root)
+        first = pools_module._read_cached.cache_info()
+        Pools(pools_root)
+        second = pools_module._read_cached.cache_info()
+        assert second.misses == first.misses  # nothing was parsed again
+        assert second.hits > first.hits
+
+    def test_an_edited_file_is_read_again(self, tmp_path):
+        path = tmp_path / "list.txt"
+        path.write_text("Alpha\n", encoding="utf-8")
+        assert Pools(tmp_path / "none").values(str(path)) == ["Alpha"]
+        path.write_text("Alpha\nBeta\nGamma\n", encoding="utf-8")  # different size
+        assert Pools(tmp_path / "none").values(str(path)) == ["Alpha", "Beta", "Gamma"]
+
+    def test_callers_cannot_corrupt_the_cache_through_values(self, pools_root):
+        pools = Pools(pools_root)
+        pools.values("names/male-given").append("Mallory")
+        pools.values("names/male-given").clear()
+        assert Pools(pools_root).values("names/male-given") == ["Alan", "Bernard", "Carl"]
+
+    def test_choices_are_unchanged_by_caching(self, pools_root):
+        first = [Pools(pools_root).choice("towns/us", Rng(s)) for s in range(20)]
+        second = [Pools(pools_root).choice("towns/us", Rng(s)) for s in range(20)]
+        assert first == second

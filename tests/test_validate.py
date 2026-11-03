@@ -11,15 +11,15 @@ import pytest
 from dggen import config
 from dggen.cli import main
 from dggen.data import load_data
+from dggen.errors import DataError
 from dggen.models import EmployerOption, EmployerProfession, WeaponRef
 from dggen.options import DataSources
-from dggen.rng import Rng
-from dggen.validate import DataError, validate_data
+from dggen.validate import validate_data
 
 
 def test_every_bundled_profession_set_validates():
     for path in sorted(config.DATA_DIR.glob("professions*.json")):
-        data = load_data(DataSources(professions=path), Rng(0))
+        data = load_data(DataSources(professions=path))
         validate_data(data)  # raises DataError on any dangling reference
 
 

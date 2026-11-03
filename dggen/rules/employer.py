@@ -26,7 +26,7 @@ def generate_employer(char: Character, employer_data: EmployerData) -> None:
         char.profession.label.lower(),
         employer_data.professions["_default"],
     )
-    option = char.rng.choices(entry.options, weights=[o.weight for o in entry.options], k=1)[0]
+    option = char.rng.weighted(entry.options, [o.weight for o in entry.options])
 
     if option.literal is not None:
         char.employer = option.literal

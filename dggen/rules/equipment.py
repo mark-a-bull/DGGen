@@ -37,7 +37,7 @@ def equip(char: Character, kit_name: str | None = None) -> None:
         gear: list[str] = []
         items: list[KitArmourEntry | KitGearEntry] = [*kit.armour, *kit.gear]
         for item in items:
-            if item.chance < char.rng.randint(1, 100):
+            if item.chance < char.rng.roll(1, 100):
                 continue
             notes = (
                 (" ".join(char.store_footnote(n) for n in item.notes) + " ") if item.notes else ""
@@ -76,13 +76,13 @@ def build_weapon_list(char: Character, weapons_to_add: Iterable[WeaponRef]) -> l
             if weapon:
                 if weapon_to_add.notes:
                     weapon.notes = weapon_to_add.notes
-                if weapon_to_add.chance >= char.rng.randint(1, 100):
+                if weapon_to_add.chance >= char.rng.roll(1, 100):
                     result.append(weapon)
             else:
                 logger.error("Unknown weapon type %s", weapon_to_add.type)
         elif weapon_to_add.one_of:
-            if weapon_to_add.chance >= char.rng.randint(1, 100):
-                result += build_weapon_list(char, [char.rng.choice(weapon_to_add.one_of)])
+            if weapon_to_add.chance >= char.rng.roll(1, 100):
+                result += build_weapon_list(char, [char.rng.pick(weapon_to_add.one_of)])
         elif weapon_to_add.both:
             result += build_weapon_list(char, weapon_to_add.both)
         else:

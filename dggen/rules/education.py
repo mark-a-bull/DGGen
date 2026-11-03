@@ -10,7 +10,6 @@ profession sets work without editing dggen/data/education.json.
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 from dggen.text import fill_template
@@ -40,13 +39,13 @@ def generate_education(char: Character, education_data: EducationData) -> None:
     if not eligible:
         return  # too young for any tier this profession defines; leave the field blank
 
-    tier_name = char.rng.choices(list(eligible), weights=list(eligible.values()), k=1)[0]
+    tier_name = char.rng.weighted(list(eligible), list(eligible.values()))
     tier = education_data.tier_defaults[tier_name]
 
     pool_id = entry.institution_pool_overrides.get(tier_name, tier.institution_pool)
     institution = char.data.pools.choice(pool_id, char.rng)
-    field = char.rng.choice(entry.fields) if entry.fields else ""
-    grad_year = datetime.now().year - (char.age - tier.grad_age)
+    field = char.rng.pick(entry.fields) if entry.fields else ""
+    grad_year = char.today.year - (char.age - tier.grad_age)
 
     # Degree phrasing ("B.S." vs "B.A.") is picked by field, not RNG, so it stays consistent
     # with the subject (never "B.A. Computer Science"). Tiers with only one phrasing (jd, md,

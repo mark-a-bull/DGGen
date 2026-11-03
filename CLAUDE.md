@@ -15,7 +15,9 @@ below), and `tests/` holds the pytest suite. `generator.py` is a thin backwards-
 silently left out of the wheel and an installed copy then fails with `FileNotFoundError` (editable installs and the
 test suite would never notice). `tests/test_packaging.py` builds a real wheel and checks every asset `dggen.config`
 points at is in it. Only the reference PDFs (`dggen/data/*.pdf`) are deliberately excluded — if you add a new kind of
-runtime file under `dggen/data/`, that test is what tells you whether it ships.
+runtime file under `dggen/data/`, that test is what tells you whether it ships. The version is written once, as
+`dggen.__version__` (pyproject reads it via `[tool.setuptools.dynamic]`), and `requirements.txt` is a copy of
+`[project].dependencies` — `pyproject.toml` is the source of truth and a test fails if the two drift.
 
 ## Setup and running
 
@@ -26,7 +28,9 @@ pip install -e ".[dev]"          # editable install + dev deps (pytest, pypdf)
 dggen -h                         # console entry point; or `python -m dggen -h`, or `python generator.py -h`
 ```
 
-Runtime deps are `reportlab` (PDF rendering) and `faker` (optional name generation via `--names`). Dev deps
+Runtime deps are `reportlab` (PDF rendering) and `faker` (name generation via `--names`; installed by default but
+imported only when `--names` is used, so everything else works — and `import dggen.cli` is faster — without it, and
+`--names` without it fails with a `DataError` saying to install it). Dev deps
 (`pytest`, `pypdf`) come from the `[dev]` extra. Because paths are resolved via `dggen/config.py` relative to the
 package, the tool no longer has to be run from the repo root.
 
@@ -36,7 +40,7 @@ once before the veteran-generation recipes in the README.
 ### Tests
 
 ```sh
-pytest -q                                   # whole suite (fast; ~1s)
+pytest -q                                   # whole suite (~30s: PDF rendering and a wheel build)
 pytest tests/test_text.py::TestFormatName   # a single class
 pytest -k veterancy                         # by keyword
 ```
@@ -44,7 +48,14 @@ pytest -k veterancy                         # by keyword
 Reproducibility is what makes the domain testable: all randomness flows through one seedable `dggen.rng.Rng`
 (`--seed N` on the CLI). The `make_character` fixture in `tests/conftest.py` drives the whole pipeline
 (`load_data` + `Character.generate`) from a single seeded `Rng`, exactly as the CLI does, so a seed reproduces a
-character including its name. If you touch generation, prefer asserting on the field dicts (`serialize.to_front_fields(char)` / `to_back_fields(char)`) over
+character including its name.
+
+`Rng` (`dggen/rng.py`) is deliberately not a `random.Random`: it offers `pick`, `weighted`, `roll`, `sample`,
+`shuffle` and `bits`, each pinned by `tests/test_rng.py` to the stdlib draw it wraps, and does *not* expose
+`choice`/`choices`/`randint`. Use the named method you mean (`pick` ≠ `weighted` even for a uniform list). Faker names
+are reseeded from the `Rng` on every call, so `--names` is inside the same stream. The clock is injectable too:
+`GenerationOptions.today` (default: the real date) is what ages and graduation years are measured against, via
+`char.today`; rules must not call `datetime.now()`. If you touch generation, prefer asserting on the field dicts (`serialize.to_front_fields(char)` / `to_back_fields(char)`) over
 rendered pixels.
 
 `tests/test_golden.py` compares the serialized `d`/`e` for every profession × seed × veterancy against a captured
@@ -113,7 +124,8 @@ Four layers, communicating across narrow seams. The pipeline: `cli.get_options` 
 profession, for each character `Character.generate(...)` → `pdf.SheetWriter` draws it.
 
 - **Data** (`models.py`, `data.py`, `pools.py`): `@dataclass` models with `from_dict` classmethods, loaded by
-  `load_data(options, rng)` into a `Data` object. `find_profession` resolves `-t/--type` by data key or display
+  `load_data(sources)` into a `Data` object (which holds no randomness: its name/town providers take the `Rng` per call,
+  so one `Data` serves any seed). `find_profession` resolves `-t/--type` by data key or display
   label (case-insensitive) and raises `ProfessionNotFoundError` (the CLI turns that into exit code 2 — library code
   raises, only the CLI exits). `from __future__ import annotations` in `models.py` is load-bearing: several
   `from_dict` methods return-annotate their own class, which would `NameError` under eager annotation evaluation.
@@ -127,13 +139,18 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
   the lists inline — this is deliberate: it's the boundary between "just add a line to a text file" (no code-shape
   knowledge needed, `dggen/data/pools/README.md` is the whole contract) and "understand the wiring" (which profession
   draws from which pool, with what weights). `Pools.choice()`/`.values()` also accept an arbitrary file path instead
-  of a registered id, so `--towns /my/custom-towns.csv` still works for a list that isn't checked into the repo.
+  of a registered id, so `--towns /my/custom-towns.csv` still works for a list that isn't checked into the repo. Parsed
+  files are cached per process, keyed on (path, mtime, size) — the 25,000-row towns file used to dominate `load_data` and
+  most of the suite — as immutable tuples with the running weight totals precomputed (`Rng.weighted(cum_weights=)`);
+  `Pools.values()` returns a fresh list so callers can't corrupt the cache.
 
 - **Domain/rules** (`character.py`, `rules/`, `constants.py`, `equipped.py`): `Character` is the aggregate — typed
   generation state (`stats`, `skills`, `bonds`, derived attributes, demographics, `town`, `weapons`, …). It knows
-  nothing about sheet coordinates or display formatting. `Character.generate` runs demographics → (default-on)
-  `rules.employer` → `rules.stats` → `rules.skills` → (default-on) `rules.education` → (optional)
-  `rules.veterancy` → derived attributes. Each `rules/*` module is functions taking and mutating a `Character`
+  nothing about sheet coordinates or display formatting. `Character.generate` runs `rules.pipeline.PIPELINE`, an
+  ordered tuple of `Step(name, run, enabled)`: demographics → (default-on) employer → stats → skills → (default-on)
+  education → (optional) veterancy → derived attributes. The order *is* the RNG draw order, so `PIPELINE` is where to add
+  or reorder a rule (a reorder changes every seeded character and the golden snapshot; `tests/test_pipeline.py` pins
+  the names and order), and `generate(..., pipeline=)` accepts a custom sequence. Each `rules/*` module is functions taking and mutating a `Character`
   (via its `.rng`); they import `Character` only under `TYPE_CHECKING` to avoid an import cycle. Shared game
   constants (stat pools, default/bonus skills) live in `constants.py`. `equipped.py` holds `EquippedWeapon`, the
   resolved per-character weapon (roll, effective damage modifier, assigned footnote markers) — distinct from
@@ -190,7 +207,8 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
 
 - **Load-time validation** (`validate.py`): `load_data` ends with `validate_data`, which checks every cross-reference the
   JSON files make — pool ids, tier names, kit names, weapon types (including nested `one-of`/`both`), armour types,
-  the `_default` fallbacks and the `unarmed` weapon — and raises one `DataError` listing *all* the problems, so a typo
+  the `_default` fallbacks, the `unarmed` weapon, and that every skill a profession names has a field on the sheet
+  layout (otherwise it would silently never print) — and raises one `DataError` listing *all* the problems, so a typo
   fails at startup (exit 2) rather than partway through a roster. A file with a missing key or bad JSON also raises
   `DataError` naming the file. Data files are always read as UTF-8 (the platform default, cp1252 on Windows, used to
   turn curly quotes into mojibake and made the same files load differently per OS). If you add a new kind of
@@ -201,11 +219,14 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
   third column — usually an unquoted comma —, or not UTF-8). All are raised when the file is read, i.e. at startup, with
   the file and line in the message. A UTF-8 BOM is tolerated.
 
-- **Presentation** (`pdf.py`): `SheetWriter` wraps a reportlab `Canvas`. `field_xys` is the single source of truth
-  mapping field name → `(x, y, font_size)` on the sheet background. `fill_field` looks up each `d`/`e` key and draws
-  it; unknown keys are logged and skipped, never raised (so `test_pdf.py` asserts every emitted key *has* a
-  coordinate as a guard). Free-text fields that sit in a single-line box (`name`, `profession`, `employer`,
-  `nationality`, `education` and the seven weapon names, in `field_max_widths`) run through `text.shrink_to_fit`,
+- **Presentation** (`pdf.py`, `layout.py`): `SheetWriter` wraps a reportlab `Canvas`. The sheet layout is *data*:
+  `dggen/data/sheet-layout.json` (grouped by sheet section) maps field name → `[x, y, font_size]` on the background
+  image, and `layout.load_layout()` reads and checks it (a bad file raises `DataError` naming the file at load, never at
+  draw time). `SheetWriter(..., layout=)` accepts another layout, so a different sheet design is a different file.
+  `fill_field` looks up each `d`/`e` key and draws it; unknown keys are logged and skipped, never raised (so
+  `test_pdf.py` asserts every emitted key *has* a coordinate as a guard). Free-text fields that sit in a single-line box
+  (`name`, `profession`, `employer`, `nationality`, `education` — `max_widths` in the layout file — and the seven weapon
+  names, whose width is derived from the gap before their `weaponN_roll` column) run through `text.shrink_to_fit`,
   which shrinks font size then ellipsis-truncates — reuse this for any new free-text field. Weapon names are drawn in
   full and shrunk (never cut at a fixed length, which made "Grenade launcher" and "Grenade machine gun" identical).
 
@@ -217,10 +238,19 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
   consume them through four methods (`begin`, `start_profession`, `add`, `finish`), so a new output format is one
   more class. `summary.py` renders the text view; `Profession.roster_label()` gives the roster/bookmark label.
 
+- **Public API** (`dggen/__init__.py`): `__all__` is the supported surface (`load_data`, `DataSources`,
+  `GenerationOptions`, `Rng`, `generate_roster`/`generate_character`, `find_profession`, `format_details`,
+  `to_front_fields`/`to_back_fields`, `Character`/`Data`/`Profession`, and the errors a caller catches). Names load
+  lazily (PEP 562 `__getattr__`), so `import dggen` stays cheap and does not import reportlab or Faker; an
+  `if TYPE_CHECKING` block gives type checkers the real imports. Adding or removing a name means editing `_EXPORTS`, the
+  `__all__` list and the `PUBLIC` table in `tests/test_public_api.py`, which pins all three. The package ships
+  `py.typed` (declared under `package-data`; `tests/test_packaging.py` checks it is in the wheel).
+
 - **Interface** (`cli.py`, `logging_setup.py`, `config.py`): argparse (`build_parser` describes the flags,
   `validate_options` holds the cross-flag rules, `get_options` does both, `sources_from` / `generation_from` build
-  the option dataclasses) + `main`, which wires roster → sinks; `config.py` centralises
-  page geometry, colours, fonts, and all asset/data paths.
+  the option dataclasses) + `main`, which wires roster → sinks; `config.py` is where the data lives and the default data
+  files (`DATA_DIR`, overridable with `DGGEN_DATA_DIR` before import), and `appearance.py` is how the sheet looks (page
+  geometry, colours, fonts, background images).
 
 **Pure helpers** (`text.py`) — `parse_date`, `format_name`, `age_on`, `fill_template`, `shrink_to_fit` — are
 reportlab/faker-free and are the cheapest, highest-value things to unit test. `shrink_to_fit` takes a `measure`
@@ -252,6 +282,12 @@ Adding a profession set means adding a JSON file, not touching code.
 - Employer is auto-generated by default for professions without one hardcoded in the profession data
   (age-irrelevant, but town-aware for local roles like police/fire); `--employer "..."` overrides it exactly,
   `--no-employer` leaves it blank instead.
+- Logging (`logging_setup.init_logger`) configures only the `dggen` logger and writes to **stderr**, so stdout stays the
+  character summary. Warnings and errors always show; `-v` adds information, `-vv` debug, `-vvv` debug with timestamps and
+  source locations. Truncation warnings (a kit that overflows the sheet, out of footnote markers) therefore appear with no
+  flag, because they describe things silently missing from the output. It never touches the root logger or the
+  process-wide `warnings` filters (the old `filterwarnings("ignore")` hid every dependency's warnings too). Use
+  `logger.warning`, not `print(..., file=sys.stderr)`, for new diagnostics.
 - `--seed N` — reproducible output (same seed + options ⇒ identical characters).
 - `--veterancy` / `--no-damaged` / `-a`/`-A` — veteran rules (skill boosts, stat losses, Damaged Veteran effects,
   AH p.38).
