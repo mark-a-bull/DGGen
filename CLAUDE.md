@@ -174,6 +174,11 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
   merges both back for the sheet and `text._skill_rows` folds each pair into one "Craft (Electrician)" row. Veterancy experience checks apply only to fixed skills, the `possible` skills
   actually picked (`char.picked_skills`) and `char.bonus_skills` — an unpicked `possible` skill is just a default
   skill. Bonus skills are de-duplicated before picking, so a profession-suggested bonus is never boosted twice.
+  Damaged-veteran effects stack, so `rules/veterancy.py` floors what they take away: POW and CHA never below
+  `MIN_STAT` (1), a bond never below `MIN_BOND` (1), and `current_sanity` never below 0 (`rules/stats.py`). **Occult is
+  deliberately not capped**: the effects add +10/+20/+10 and a damaged veteran may exceed 99% (about 1 in 100; it is
+  the only skill that does, and experience checks never cause it) — `test_occult_is_deliberately_uncapped` documents
+  that this is a decision, so don't "fix" it without asking.
 
   `rules/education.py` and `rules/employer.py` both auto-fill a sheet field from a JSON data file (`education.json`,
   `employers.json`) unless an explicit override (`--education`/`--employer`) or a "don't" flag
