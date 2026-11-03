@@ -15,7 +15,9 @@ below), and `tests/` holds the pytest suite. `generator.py` is a thin backwards-
 silently left out of the wheel and an installed copy then fails with `FileNotFoundError` (editable installs and the
 test suite would never notice). `tests/test_packaging.py` builds a real wheel and checks every asset `dggen.config`
 points at is in it. Only the reference PDFs (`dggen/data/*.pdf`) are deliberately excluded — if you add a new kind of
-runtime file under `dggen/data/`, that test is what tells you whether it ships.
+runtime file under `dggen/data/`, that test is what tells you whether it ships. The version is written once, as
+`dggen.__version__` (pyproject reads it via `[tool.setuptools.dynamic]`), and `requirements.txt` is a copy of
+`[project].dependencies` — `pyproject.toml` is the source of truth and a test fails if the two drift.
 
 ## Setup and running
 
@@ -26,7 +28,9 @@ pip install -e ".[dev]"          # editable install + dev deps (pytest, pypdf)
 dggen -h                         # console entry point; or `python -m dggen -h`, or `python generator.py -h`
 ```
 
-Runtime deps are `reportlab` (PDF rendering) and `faker` (optional name generation via `--names`). Dev deps
+Runtime deps are `reportlab` (PDF rendering) and `faker` (name generation via `--names`; installed by default but
+imported only when `--names` is used, so everything else works — and `import dggen.cli` is faster — without it, and
+`--names` without it fails with a `DataError` saying to install it). Dev deps
 (`pytest`, `pypdf`) come from the `[dev]` extra. Because paths are resolved via `dggen/config.py` relative to the
 package, the tool no longer has to be run from the repo root.
 

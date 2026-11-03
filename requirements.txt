@@ -1,3 +1,5 @@
+# Mirrors [project].dependencies in pyproject.toml, which is the source of truth;
+# tests/test_packaging.py fails if the two drift.
 reportlab~=4.0
 faker~=40.23.0
 pillow>=13.0.0; python_version >= "3.11"

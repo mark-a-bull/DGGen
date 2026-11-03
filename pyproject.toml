@@ -4,7 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dggen"
-version = "2.0"
+# The version is written once, as `dggen.__version__` (see [tool.setuptools.dynamic] below).
+dynamic = ["version"]
 description = "Generate pre-made character sheets (PDF) for the Delta Green pen-and-paper RPG."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -25,6 +26,9 @@ dggen = "dggen.cli:main"
 
 [tool.setuptools]
 packages = ["dggen", "dggen.rules"]
+
+[tool.setuptools.dynamic]
+version = { attr = "dggen.__version__" }
 
 # The generator relies on fonts, images and data files under dggen/data/ (found via
 # dggen.config.DATA_DIR). They are not Python packages, so they must be listed as package data

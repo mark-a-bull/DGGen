@@ -1,7 +1,7 @@
 """Load the data files into a `Data` object, and look professions up by key or label.
 
-The name/town providers close over the seedable `Rng` so that even name and town selection is
-reproducible under a fixed seed.
+The loaded `Data` holds no randomness: its name/town providers take the `Rng` to draw from at call
+time, so name and town selection are reproducible under a fixed seed like everything else.
 """
 
 from __future__ import annotations
@@ -10,8 +10,6 @@ import csv
 import json
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
-
-from faker import Faker
 
 from dggen import config
 from dggen.errors import DataError
@@ -22,6 +20,8 @@ from dggen.validate import validate_data
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
     from pathlib import Path
+
+    from faker import Faker
 
     from dggen.options import DataSources
     from dggen.rng import Rng
@@ -122,6 +122,14 @@ def load_data(sources: DataSources) -> Data:
     pools = Pools(config.POOLS_DIR)
 
     if sources.names_locale:
+        try:
+            # Faker is only needed for --names, so it is imported here rather than at module level:
+            # everything else (and `import dggen.cli`) works, and starts faster, without it.
+            from faker import Faker  # noqa: PLC0415
+        except ImportError as exc:
+            raise DataError(
+                "--names needs the 'faker' package, which is not installed (pip install faker)"
+            ) from exc
         try:
             faker = Faker(sources.names_locale)
         except AttributeError as exc:  # Faker's way of saying the locale doesn't exist
