@@ -139,9 +139,11 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
 
 - **Domain/rules** (`character.py`, `rules/`, `constants.py`, `equipped.py`): `Character` is the aggregate — typed
   generation state (`stats`, `skills`, `bonds`, derived attributes, demographics, `town`, `weapons`, …). It knows
-  nothing about sheet coordinates or display formatting. `Character.generate` runs demographics → (default-on)
-  `rules.employer` → `rules.stats` → `rules.skills` → (default-on) `rules.education` → (optional)
-  `rules.veterancy` → derived attributes. Each `rules/*` module is functions taking and mutating a `Character`
+  nothing about sheet coordinates or display formatting. `Character.generate` runs `rules.pipeline.PIPELINE`, an
+  ordered tuple of `Step(name, run, enabled)`: demographics → (default-on) employer → stats → skills → (default-on)
+  education → (optional) veterancy → derived attributes. The order *is* the RNG draw order, so `PIPELINE` is where to add
+  or reorder a rule (a reorder changes every seeded character and the golden snapshot; `tests/test_pipeline.py` pins
+  the names and order), and `generate(..., pipeline=)` accepts a custom sequence. Each `rules/*` module is functions taking and mutating a `Character`
   (via its `.rng`); they import `Character` only under `TYPE_CHECKING` to avoid an import cycle. Shared game
   constants (stat pools, default/bonus skills) live in `constants.py`. `equipped.py` holds `EquippedWeapon`, the
   resolved per-character weapon (roll, effective damage modifier, assigned footnote markers) — distinct from

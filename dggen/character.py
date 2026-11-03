@@ -20,13 +20,17 @@ from typing import TYPE_CHECKING
 from dggen import constants
 from dggen.constants import MONTHS
 from dggen.options import GenerationOptions
-from dggen.rules import education, employer, equipment, skills, stats, veterancy
+from dggen.rules import equipment
+from dggen.rules.pipeline import PIPELINE, enabled_steps
 from dggen.text import age_on, format_name
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from dggen.equipped import EquippedWeapon
     from dggen.models import Data, Profession
     from dggen.rng import Rng
+    from dggen.rules.pipeline import Step
 
 logger = logging.getLogger("dggen")
 
@@ -92,20 +96,14 @@ class Character:
         sex: str,
         profession: Profession,
         options: GenerationOptions | None = None,
+        pipeline: Sequence[Step] = PIPELINE,
     ) -> Character:
+        """Run `pipeline` (default: the standard rules, in order) to produce one character."""
         options = options or GenerationOptions()
         char = cls(data, rng, sex, profession)
         char.today = options.today or date.today()
-        char.generate_demographics(options)
-        if options.auto_employer:
-            employer.generate_employer(char, data.employer)
-        stats.generate_stats(char)
-        skills.generate_skills(char)
-        if options.auto_education:
-            education.generate_education(char, data.education)
-        if options.veterancy_enabled:
-            veterancy.apply_veterancy(char, options.damaged)
-        stats.generate_derived_attributes(char)
+        for step in enabled_steps(options, pipeline):
+            step.run(char, options)
         return char
 
     def generate_demographics(self, options: GenerationOptions) -> None:
