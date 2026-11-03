@@ -54,6 +54,7 @@ def _runtime_assets():
         config.DEFAULT_PROFESSIONS,
         config.DEFAULT_EQUIPMENT,
         config.DEFAULT_DISTINGUISHING,
+        config.DEFAULT_SHEET_LAYOUT,
         config.DEFAULT_EDUCATION_DATA,
         config.DEFAULT_EMPLOYER_DATA,
     ]

@@ -198,7 +198,8 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
 
 - **Load-time validation** (`validate.py`): `load_data` ends with `validate_data`, which checks every cross-reference the
   JSON files make — pool ids, tier names, kit names, weapon types (including nested `one-of`/`both`), armour types,
-  the `_default` fallbacks and the `unarmed` weapon — and raises one `DataError` listing *all* the problems, so a typo
+  the `_default` fallbacks, the `unarmed` weapon, and that every skill a profession names has a field on the sheet
+  layout (otherwise it would silently never print) — and raises one `DataError` listing *all* the problems, so a typo
   fails at startup (exit 2) rather than partway through a roster. A file with a missing key or bad JSON also raises
   `DataError` naming the file. Data files are always read as UTF-8 (the platform default, cp1252 on Windows, used to
   turn curly quotes into mojibake and made the same files load differently per OS). If you add a new kind of
@@ -209,11 +210,14 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
   third column — usually an unquoted comma —, or not UTF-8). All are raised when the file is read, i.e. at startup, with
   the file and line in the message. A UTF-8 BOM is tolerated.
 
-- **Presentation** (`pdf.py`): `SheetWriter` wraps a reportlab `Canvas`. `field_xys` is the single source of truth
-  mapping field name → `(x, y, font_size)` on the sheet background. `fill_field` looks up each `d`/`e` key and draws
-  it; unknown keys are logged and skipped, never raised (so `test_pdf.py` asserts every emitted key *has* a
-  coordinate as a guard). Free-text fields that sit in a single-line box (`name`, `profession`, `employer`,
-  `nationality`, `education` and the seven weapon names, in `field_max_widths`) run through `text.shrink_to_fit`,
+- **Presentation** (`pdf.py`, `layout.py`): `SheetWriter` wraps a reportlab `Canvas`. The sheet layout is *data*:
+  `dggen/data/sheet-layout.json` (grouped by sheet section) maps field name → `[x, y, font_size]` on the background
+  image, and `layout.load_layout()` reads and checks it (a bad file raises `DataError` naming the file at load, never at
+  draw time). `SheetWriter(..., layout=)` accepts another layout, so a different sheet design is a different file.
+  `fill_field` looks up each `d`/`e` key and draws it; unknown keys are logged and skipped, never raised (so
+  `test_pdf.py` asserts every emitted key *has* a coordinate as a guard). Free-text fields that sit in a single-line box
+  (`name`, `profession`, `employer`, `nationality`, `education` — `max_widths` in the layout file — and the seven weapon
+  names, whose width is derived from the gap before their `weaponN_roll` column) run through `text.shrink_to_fit`,
   which shrinks font size then ellipsis-truncates — reuse this for any new free-text field. Weapon names are drawn in
   full and shrunk (never cut at a fixed length, which made "Grenade launcher" and "Grenade machine gun" identical).
 

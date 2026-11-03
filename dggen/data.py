@@ -14,9 +14,10 @@ from typing import TYPE_CHECKING, Any
 from faker import Faker
 
 from dggen import config
+from dggen.errors import DataError
 from dggen.models import Data, EducationData, EmployerData, Kit, Profession, Weapon
 from dggen.pools import Pools
-from dggen.validate import DataError, validate_data
+from dggen.validate import validate_data
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator

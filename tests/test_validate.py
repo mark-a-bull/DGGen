@@ -11,9 +11,10 @@ import pytest
 from dggen import config
 from dggen.cli import main
 from dggen.data import load_data
+from dggen.errors import DataError
 from dggen.models import EmployerOption, EmployerProfession, WeaponRef
 from dggen.options import DataSources
-from dggen.validate import DataError, validate_data
+from dggen.validate import validate_data
 
 
 def test_every_bundled_profession_set_validates():

@@ -43,6 +43,7 @@ SHEET_BACK_IMAGE = DATA_DIR / "Character Sheet NO BACKGROUND BACK.jpg"
 DEFAULT_PROFESSIONS = DATA_DIR / "professions.json"
 DEFAULT_EQUIPMENT = DATA_DIR / "equipment.json"
 DEFAULT_DISTINGUISHING = DATA_DIR / "distinguishing-features.csv"
+DEFAULT_SHEET_LAYOUT = DATA_DIR / "sheet-layout.json"
 DEFAULT_EDUCATION_DATA = DATA_DIR / "education.json"
 DEFAULT_EMPLOYER_DATA = DATA_DIR / "employers.json"
 

@@ -15,6 +15,7 @@ from reportlab.pdfbase import pdfmetrics
 
 from dggen import config
 from dggen.cli import main
+from dggen.layout import load_layout
 from dggen.pdf import SheetWriter
 from dggen.serialize import to_back_fields, to_front_fields
 from dggen.text import shrink_to_fit
@@ -22,8 +23,8 @@ from dggen.text import shrink_to_fit
 
 def test_every_emitted_field_has_a_coordinate(make_character, data):
     """Guard against silently-dropped sheet fields: every key a character emits into d/e must
-    have an entry in field_xys (otherwise fill_field only logs and skips it)."""
-    known = set(SheetWriter.field_xys)
+    have an entry in the layout (otherwise fill_field only logs and skips it)."""
+    known = set(load_layout().fields)
     for profession in data.professions:
         char = make_character(
             profession=profession,
@@ -156,17 +157,18 @@ def test_every_weapon_name_fits_its_box_at_a_legible_size(tmp_path):
     """Weapon names are drawn in full and shrunk to fit the name column (not truncated)."""
 
     writer = SheetWriter(tmp_path / "x.pdf")
+    layout = writer.layout
     weapons = json.loads((config.DATA_DIR / "equipment.json").read_text("utf-8"))["weapons"]
     for slot in range(7):
         field = f"weapon{slot}"
-        name_x = SheetWriter.field_xys[field][0]
-        roll_x = SheetWriter.field_xys[f"{field}_roll"][0]
-        max_width = SheetWriter.field_max_widths[field]
+        name_x = layout.fields[field][0]
+        roll_x = layout.fields[f"{field}_roll"][0]
+        max_width = layout.max_widths[field]
         assert name_x + max_width < roll_x, f"{field} would run into the next column"
         for weapon in weapons.values():
             text, size = shrink_to_fit(
                 weapon["name"],
-                SheetWriter.field_xys[field][2],
+                layout.fields[field][2],
                 max_width,
                 writer._measure,
             )
