@@ -153,7 +153,7 @@ If desired, veteran Delta Green agent characters can be generated with the `--ve
 have gained skill levels due to experience, but may also have suffered some decreases in physical characteristics, and
 may also suffer some Damaged Veterans effects (from page 38 of the
 [AH](https://shop.arcdream.com/products/delta-green-agents-handbook)). Minimum and maximum ages can be set with the
-`-a` and `-A` flags respectively.
+`-a` and `-A` flags respectively (the defaults are 25 and 55, and the minimum can't be below 18).
 
 If you'd prefer to get the veterancy experience checks and stat losses, but not the Damaged Veterans effects, use the
 `--no-damaged` flag. This flag has no effect if veterancy is not enabled. This is probably the right thing to do if you
