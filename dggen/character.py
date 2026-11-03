@@ -38,12 +38,19 @@ MAX_NOTE_LINES = 12
 
 
 class Character:
-    def __init__(self, data: Data, rng: Rng, sex: str, profession: Profession) -> None:
+    def __init__(
+        self,
+        data: Data,
+        rng: Rng,
+        sex: str,
+        profession: Profession,
+        today: date | None = None,
+    ) -> None:
         self.data = data
         self.rng = rng
         self.sex = sex
         self.profession = profession
-        self.today = date.today()  # overwritten from GenerationOptions.today by generate()
+        self.today = today or date.today()  # the date ages are measured against
 
         # Demographics
         self.name = ""
@@ -100,8 +107,7 @@ class Character:
     ) -> Character:
         """Run `pipeline` (default: the standard rules, in order) to produce one character."""
         options = options or GenerationOptions()
-        char = cls(data, rng, sex, profession)
-        char.today = options.today or date.today()
+        char = cls(data, rng, sex, profession, today=options.today)
         for step in enabled_steps(options, pipeline):
             step.run(char, options)
         return char

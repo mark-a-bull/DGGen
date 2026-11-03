@@ -15,7 +15,9 @@ from reportlab.pdfbase import pdfmetrics
 
 from dggen import appearance, config
 from dggen.cli import main
+from dggen.data import load_data
 from dggen.layout import load_layout
+from dggen.options import DataSources
 from dggen.pdf import SheetWriter
 from dggen.serialize import to_back_fields, to_front_fields
 from dggen.text import shrink_to_fit
@@ -70,11 +72,17 @@ def test_cli_rejects_unknown_profession(tmp_path):
 
 
 def test_cli_multiple_professions_builds_toc(tmp_path):
-    """Exercises the >1 profession path, which renders a Table of Contents."""
+    """Several professions => a Table of Contents page, and one bookmark per profession."""
     out = tmp_path / "roster.pdf"
-    rc = main(["--seed", "1", "--pdf", "-o", str(out)])
+    rc = main(["--seed", "1", "-c", "1", "--pdf", "-o", str(out)])  # one each: fast, same path
     assert rc == 0
-    assert out.read_bytes().startswith(b"%PDF")
+    reader = PdfReader(str(out))
+    professions = load_data(DataSources()).professions
+    # two cover pages, the TOC, then a front and back page for each profession's one character
+    assert len(reader.pages) == 2 + 1 + 2 * len(professions)
+    titles = [entry.title for entry in reader.outline if isinstance(entry, Destination)]
+    assert titles[0] == "Table of Contents"
+    assert len(titles) == 1 + len(professions)
 
 
 def _toc_rows(reader):

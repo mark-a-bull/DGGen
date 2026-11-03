@@ -69,6 +69,18 @@ results for an identical seed even when picking from the same list uniformly, so
 golden-changing move in its own right, not a no-op refactor (this is why `Pools.choice()` — see below — standardises
 on `.choices()` everywhere, rather than "no observable behavior change").
 
+`tests/test_golden_variants.py` is the second snapshot (`tests/golden/variants.json`) for what the first one doesn't reach:
+female characters, exact birthdates and birth years, unequipped sheets, each override and switch, veterans with and
+without damage (the seed is chosen so the 20% damage roll lands), every other profession file, and the UK town list.
+Its scenarios are a table in the test module; add a row, regenerate, and read the diff. Both snapshots pin `today`
+(2026-06-01): graduation years are "this year minus years since graduating", so a snapshot built against the real date
+would fail every New Year. Anything new that reads the clock must take it from `GenerationOptions.today` /
+`char.today` (a test makes the real clock raise to prove generation doesn't touch it when a date is supplied).
+
+When strengthening a test, check it can fail: temporarily break the code it covers (flip a formula, drop a skill) and
+confirm the test goes red. Tests that assert only inside an `if` need an assertion that the branch was reached, and a
+positive control showing the thing they forbid does happen elsewhere.
+
 ### Types
 
 `dggen/` is kept clean under `mypy --strict` (config in `pyproject.toml`; `mypy` and `types-reportlab` are in the
