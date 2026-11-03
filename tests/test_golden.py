@@ -8,6 +8,7 @@ change any emitted field value, this test fails.
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,10 @@ from dggen.data import find_profession, load_data
 from dggen.options import DataSources, GenerationOptions
 from dggen.rng import Rng
 from dggen.serialize import to_back_fields, to_front_fields
+
+# Pinned: graduation years are "the current year minus years since graduating", so a snapshot
+# built against the real date would start failing every New Year. 2026 is when it was captured.
+TODAY = date(2026, 6, 1)
 
 GOLDEN = json.loads((Path(__file__).parent / "golden" / "characters.json").read_text("utf-8"))
 
@@ -30,7 +35,7 @@ def _build(prof_key: str, seed: int, veterancy: bool):
         rng=rng,
         sex="male",
         profession=prof,
-        options=GenerationOptions(veterancy_enabled=veterancy, damaged=True),
+        options=GenerationOptions(veterancy_enabled=veterancy, damaged=True, today=TODAY),
     )
     char.equip(prof.equipment_kit)
     char.print_footnotes()

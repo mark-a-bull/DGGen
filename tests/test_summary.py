@@ -2,7 +2,20 @@
 
 from __future__ import annotations
 
+import re
+
 from dggen.summary import format_details
+
+
+def _skill_rows(text: str) -> list[tuple[str, int]]:
+    """The (name, score) rows printed under "Skills:", in order."""
+    block = text.split("\nSkills:\n", 1)[1].split("\n\n", 1)[0]
+    rows = []
+    for line in block.splitlines():
+        match = re.fullmatch(r"  (.+?)\s+(\d+)%", line)
+        assert match, f"not a skill row: {line!r}"
+        rows.append((match.group(1), int(match.group(2))))
+    return rows
 
 
 class TestFormatDetails:
@@ -15,12 +28,17 @@ class TestFormatDetails:
         strength = char.stats["strength"]
         assert f"  {'Strength':<14} {strength:3d}  (x5 {strength * 5})" in text
 
-    def test_skills_section_lists_every_skill(self, make_character):
+    def test_skills_section_lists_every_skill_once_with_its_own_score(self, make_character):
+        """Row for row: a skill that is missing, repeated, or shown with another skill's score
+        fails (a substring check on "{score}%" would pass any of those)."""
         char = make_character(profession="agent", seed=1)
-        text = format_details(char)
-        assert "Skills:" in text
-        for score in char.skills.values():
-            assert f"{score}%" in text
+        rows = _skill_rows(format_details(char))
+        assert rows == [(name.title(), score) for name, score in sorted(char.skills.items())]
+        assert len(rows) == len(char.skills) > 20  # the full default list plus the profession's
+
+    def test_skills_are_sorted_by_name(self, make_character):
+        names = [name for name, _ in _skill_rows(format_details(make_character(seed=2)))]
+        assert names == sorted(names)
 
     def test_label_entries_are_folded_into_their_skill_not_listed_as_skills(self, make_character):
         """Profession data stores sub-skill names (craft1label: "Electrician") alongside the
@@ -32,6 +50,12 @@ class TestFormatDetails:
         assert "Label" not in text
         assert "Electrician%" not in text
         assert f"  {'Craft (Electrician)':<26} {char.skills['craft1value']}%" in text
+        rows = dict(_skill_rows(text))
+        assert rows["Craft (Electrician)"] == char.skills["craft1value"]
+        assert rows["Craft (Mechanic)"] == char.skills["craft2value"]
+        assert not [name for name in rows if "label" in name.lower() or "value" in name.lower()]
+        # one row per numeric skill: the labels add no rows of their own
+        assert len(rows) == len(char.skills)
 
     def test_bonds_section_present_when_bonds_exist(self, make_character):
         char = make_character(profession="agent", seed=1)

@@ -15,7 +15,7 @@ from dggen.models import KitGearEntry, WeaponRef
 from dggen.rng import Rng
 from dggen.rules.equipment import MAX_GEAR_LINES, MAX_WEAPONS
 from dggen.rules.skills import generate_bonus_skills
-from dggen.rules.stats import damage_bonus
+from dggen.rules.stats import damage_bonus, generate_derived_attributes
 from dggen.rules.veterancy import (
     skill_checks_at_age,
     stat_losses_at_age,
@@ -58,18 +58,43 @@ class TestSkillChecksAtAge:
 
 
 class TestDerivedAttributes:
-    def test_formulas(self, make_character):
+    # (strength, constitution, power) -> (hit points, willpower, sanity, breaking point).
+    # Expected values are written out, not recomputed with the production formula, so a change to
+    # the formula fails here. STR + CON is even in every row: how a half-point of hit points
+    # rounds is an open rules question (review item B9) that these deliberately don't pin down.
+    @pytest.mark.parametrize(
+        ("strength", "constitution", "power", "expected"),
+        [
+            (10, 12, 11, (11, 11, 55, 44)),
+            (16, 16, 9, (16, 9, 45, 36)),
+            (7, 9, 15, (8, 15, 75, 60)),
+            (13, 15, 12, (14, 12, 60, 48)),
+            (18, 18, 18, (18, 18, 90, 72)),
+            (3, 3, 3, (3, 3, 15, 12)),
+        ],
+    )
+    def test_formulas(self, make_character, strength, constitution, power, expected):
         char = make_character()
-        d = _front(char)
-        assert d["hitpoints"] == round((d["strength"] + d["constitution"]) / 2.0)
-        assert d["willpower"] == d["power"]
-        assert d["sanity"] == d["power"] * 5
-        assert d["breaking point"] == d["sanity"] - d["power"]
+        char.stats.update(strength=strength, constitution=constitution, power=power)
+        generate_derived_attributes(char)
+        got = (char.hitpoints, char.willpower, char.sanity, char.breaking_point)
+        assert got == expected
+        assert char.current_sanity is None  # nothing lost yet
+
+    def test_current_sanity_is_max_sanity_less_what_was_lost(self, make_character):
+        char = make_character()
+        char.stats.update(power=12)
+        char.san_lost = 7
+        generate_derived_attributes(char)
+        assert char.sanity == 60
+        assert char.current_sanity == 53
+        assert char.breaking_point == 48  # still from maximum sanity, not current
 
     def test_all_six_stats_populated_and_in_range(self, make_character):
         char = make_character()
+        assert set(char.stats) == set(STATS)
         for stat in STATS:
-            assert 1 <= _front(char)[stat] <= 18
+            assert 3 <= char.stats[stat] <= 18  # 3d6-style bounds for a rolled or pooled stat
 
 
 class TestDeterminism:
@@ -103,30 +128,65 @@ class TestOverrides:
         assert all(stat in _front(char) for stat in STATS)
 
 
-class TestVeterancy:
-    def test_physical_stats_never_below_one(self, make_character):
-        # An extreme age forces the maximum stat-loss band.
-        char = make_character(
-            seed=3,
-            birthdate=date(1930, 1, 1),
-            veterancy_enabled=True,
-            damaged=False,
-        )
-        for stat in PHYSICAL_STATS:
-            assert _front(char)[stat] >= 1
+def _physical(char) -> int:
+    return sum(char.stats[stat] for stat in PHYSICAL_STATS)
 
-    def test_veterancy_boosts_are_nonnegative(self, make_character):
-        base = make_character(seed=5, birthdate=date(1996, 1, 1))
+
+class TestVeterancy:
+    """A veteran is the same character as a non-veteran of the same seed, plus experience.
+
+    The two characters share every draw up to the veterancy step (stats, skills and bonus skills
+    come before education, which is the first age-dependent draw), so they can be compared skill
+    by skill. `today` is pinned so the ages are 30 and 56 whatever the date.
+    """
+
+    TODAY = date(2026, 1, 1)
+
+    def _pair(self, make_character, profession="agent", seed=5, veteran_born=date(1970, 1, 1)):
+        common = {"profession": profession, "seed": seed, "today": self.TODAY}
+        base = make_character(birthdate=date(1996, 1, 1), **common)  # 30: below the 40+ losses
         vet = make_character(
-            seed=5,
-            birthdate=date(1970, 1, 1),
-            veterancy_enabled=True,
-            damaged=False,
+            birthdate=veteran_born, veterancy_enabled=True, damaged=False, **common
         )
-        # A veteran's fixed professional skills should be at least their base value.
-        for skill in base.profession.skills.fixed:
-            if isinstance(_front(base).get(skill), int):
-                assert _front(vet)[skill] >= base.profession.skills.fixed[skill]
+        # The premise of the comparison: same character up to the veterancy step.
+        assert (base.stats["intelligence"], base.picked_skills, base.bonus_skills) == (
+            vet.stats["intelligence"],
+            vet.picked_skills,
+            vet.bonus_skills,
+        )
+        return base, vet
+
+    @pytest.mark.parametrize("profession", ["agent", "soldier", "nurse", "engineer"])
+    def test_experience_only_ever_adds_to_skills(self, make_character, profession):
+        base, vet = self._pair(make_character, profession)
+        assert vet.age == 56
+        assert set(vet.skills) == set(base.skills)
+        assert all(vet.skills[name] >= base.skills[name] for name in base.skills)
+        assert any(vet.skills[name] > base.skills[name] for name in base.skills)  # and it did
+
+    @pytest.mark.parametrize("profession", ["agent", "soldier", "nurse", "engineer"])
+    def test_only_professional_and_bonus_skills_gain_experience(self, make_character, profession):
+        base, vet = self._pair(make_character, profession)
+        eligible = {*base.profession.skills.fixed, *base.picked_skills, *base.bonus_skills}
+        for name in base.skills:
+            if name not in eligible:
+                assert vet.skills[name] == base.skills[name], f"{name} gained without cause"
+
+    def test_age_costs_physical_stats_and_nothing_else(self, make_character):
+        base, vet = self._pair(make_character)  # age 56 loses 2 points in total
+        assert _physical(base) - _physical(vet) == 2
+        for stat in STATS:
+            if stat not in PHYSICAL_STATS:
+                assert vet.stats[stat] == base.stats[stat]
+
+    def test_physical_stats_never_drop_below_one(self, make_character):
+        # Age 96 is the maximum band: 32 points of loss, more than most characters have to give.
+        base, vet = self._pair(make_character, veteran_born=date(1930, 1, 1))
+        assert vet.age == 96
+        assert all(vet.stats[stat] >= 1 for stat in PHYSICAL_STATS)
+        available = sum(base.stats[stat] - 1 for stat in PHYSICAL_STATS)
+        lost = sum(base.stats[stat] - vet.stats[stat] for stat in PHYSICAL_STATS)
+        assert lost == min(32, available)  # takes everything it can, and no more
 
 
 class TestEquipment:

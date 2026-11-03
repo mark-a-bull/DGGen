@@ -6,6 +6,7 @@ from __future__ import annotations
 import re
 from datetime import date
 
+from dggen import character as character_module
 from dggen.data import load_data
 from dggen.options import DataSources, GenerationOptions
 from dggen.rng import Rng
@@ -59,3 +60,20 @@ class TestTheClockIsInjectable:
         grad_ages = {tier.grad_age for tier in data.education.tier_defaults.values()}
         assert year <= today.year
         assert (char.age - (today.year - year)) in grad_ages  # grad_age = age - years since
+
+
+def test_the_real_clock_is_never_read_when_a_date_is_supplied(make_character, monkeypatch):
+    """Anything that reads the real date makes results depend on when the suite runs (the golden
+    snapshot would have started failing on 1 January 2027). A supplied `today` must be enough."""
+
+    class NoClock(date):
+        @classmethod
+        def today(cls):
+            raise AssertionError("the real clock was read")
+
+    monkeypatch.setattr(character_module, "date", NoClock)
+    char = make_character(
+        today=date(2020, 1, 1), birthdate=date(1990, 6, 1), veterancy_enabled=True
+    )
+    assert char.today == date(2020, 1, 1)
+    assert char.age == 29
