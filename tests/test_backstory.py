@@ -132,8 +132,9 @@ class TestGenerateBackstory:
 
 
 class TestSeedsAreUndisturbed:
-    """The backstory is drawn after the equipment, so it must not move anything that came before
-    it: people share seeds, and a new feature should not change the character a seed gives."""
+    """The backstory draws from a fork of the main stream, so it must not move anything: people
+    share seeds, and a new feature should not change what a seed gives - for the first character
+    of a roster *or any later one* (a shared stream would shift every character after the first)."""
 
     @pytest.mark.parametrize("profession", ["agent", "police", "soldier", "scientist"])
     def test_the_sheet_fields_are_the_same_with_or_without_it(self, data, profession):
@@ -143,6 +144,45 @@ class TestSeedsAreUndisturbed:
             assert to_front_fields(with_it) == to_front_fields(without)
             assert to_back_fields(with_it) == to_back_fields(without)
             assert with_it.backstory is not None
+
+    @pytest.mark.parametrize("veterancy", [False, True], ids=["plain", "veterans"])
+    def test_every_character_of_a_roster_is_the_same_with_or_without_it(self, data, veterancy):
+        professions = [data.professions[k] for k in ("agent", "nurse", "soldier", "police")]
+
+        def roster(**overrides):
+            options = GenerationOptions(veterancy_enabled=veterancy, **overrides)
+            return [
+                (char.name, to_front_fields(char), to_back_fields(char), char.backstory)
+                for _profession, char in generate_roster(
+                    data, Rng(7), professions, options, count=4
+                )
+            ]
+
+        with_it, without = roster(), roster(auto_backstory=False)
+        assert len(with_it) == len(without) == 16
+        for (name, front, back, story), (name_off, front_off, back_off, story_off) in zip(
+            with_it, without, strict=True
+        ):
+            assert (name, front, back) == (name_off, front_off, back_off)
+            assert story is not None
+            assert story_off is None
+
+    @pytest.mark.parametrize("seed", range(5))
+    def test_the_main_stream_is_left_exactly_where_it_was(self, data, seed):
+        """The direct form of the guarantee: after a character, the next draw is the same."""
+        profession = data.professions["agent"]
+        with_it, without = Rng(seed), Rng(seed)
+        generate_character(data, with_it, "male", profession, GenerationOptions())
+        generate_character(
+            data, without, "male", profession, GenerationOptions(auto_backstory=False)
+        )
+        assert with_it.roll(1, 10**9) == without.roll(1, 10**9)
+
+    def test_different_characters_still_get_different_backstories(self, data):
+        """Positive control for the fork: it is seeded from the stream's state, so it must not
+        collapse to one fixed backstory for everybody."""
+        stories = {_make(data, seed=seed).backstory for seed in range(20)}
+        assert len(stories) == 20
 
 
 class TestSplitTag:

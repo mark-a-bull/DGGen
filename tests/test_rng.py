@@ -71,6 +71,53 @@ class TestTheApiIsDeliberatelyNarrow:
         assert Rng(5).bits(32) == random.Random(5).getrandbits(32)
 
 
+class TestFork:
+    """`fork()` gives an optional extra its own stream without moving anyone else's draws."""
+
+    @pytest.mark.parametrize("seed", range(5))
+    def test_forking_does_not_advance_the_parent(self, seed):
+        forked, untouched = Rng(seed), Rng(seed)
+        forked.fork()
+        forked.fork()
+        assert [forked.roll(1, 10**9) for _ in range(5)] == [
+            untouched.roll(1, 10**9) for _ in range(5)
+        ]
+
+    @pytest.mark.parametrize("seed", range(5))
+    def test_drawing_from_a_fork_does_not_move_the_parent(self, seed):
+        forked, untouched = Rng(seed), Rng(seed)
+        child = forked.fork()
+        for _ in range(100):
+            child.roll(1, 100)
+        assert forked.roll(1, 10**9) == untouched.roll(1, 10**9)
+
+    def test_the_same_state_gives_the_same_fork(self):
+        first, second = Rng(5).fork(), Rng(5).fork()
+        assert [first.roll(1, 10**9) for _ in range(5)] == [second.roll(1, 10**9) for _ in range(5)]
+
+    def test_forks_taken_at_different_points_differ(self):
+        rng = Rng(5)
+        early = rng.fork()
+        rng.roll(1, 100)
+        late = rng.fork()
+        assert [early.roll(1, 10**9) for _ in range(5)] != [late.roll(1, 10**9) for _ in range(5)]
+
+    def test_a_fork_is_not_a_copy_of_the_parent_stream(self):
+        parent = Rng(5)
+        child = parent.fork()
+        assert [child.roll(1, 10**9) for _ in range(5)] != [parent.roll(1, 10**9) for _ in range(5)]
+
+    def test_the_fork_of_a_seed_is_the_same_in_every_process(self):
+        """Pinned values: a hash of the state, so nothing here may depend on this process (a
+        `hash()` of a str or an object id would pass every in-process test and fail this)."""
+        zero, other = Rng(0).fork(), Rng(12345).fork()
+        assert [zero.roll(1, 10**6) for _ in range(3)] == [694639, 15101, 561131]
+        assert [other.roll(1, 10**6) for _ in range(3)] == [318786, 233689, 576659]
+
+    def test_an_unseeded_rng_forks_too(self):
+        assert isinstance(Rng().fork().roll(1, 6), int)
+
+
 @pytest.mark.parametrize("seed", range(10))
 class TestCumulativeWeights:
     """`cum_weights` lets a caller precompute the running totals once (the towns pool has 25,000

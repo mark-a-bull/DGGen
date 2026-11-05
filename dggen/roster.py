@@ -32,10 +32,10 @@ def generate_character(
 ) -> Character:
     """One finished character: generated, equipped, given a backstory, footnotes flushed.
 
-    The order matters. Footnote markers are assigned while equipping and the note lines can only be
-    flushed after that. The backstory is drawn last, after the equipment, so adding it left every
-    seeded character's stats, skills and gear exactly as they were. Callers should use this rather
-    than repeating the steps.
+    The order matters: footnote markers are assigned while equipping, and the note lines can only
+    be flushed after that. The backstory draws from a fork of `rng` (see `rules/backstory.py`), so
+    `rng` ends up exactly where it would have without one and the next character of a roster is
+    unaffected. Callers should use this rather than repeating the steps.
     """
     character = Character.generate(
         data=data, rng=rng, sex=sex, profession=profession, options=options

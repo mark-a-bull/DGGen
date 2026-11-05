@@ -1,10 +1,13 @@
 """Backstory: name each bond, and pick a couple of motivations and personal details.
 
-Drawn by `roster.generate_character` *after* the equipment, not by a `PIPELINE` step: the equipment
-takes its draws from the same `Rng`, so a step ahead of it would change every seeded character's
-gear. It runs once everything else (veterancy included) is final, so a bond a damaged veteran lost
-is already gone and only the surviving bonds get a person. The value lists are pools under
-`dggen/data/pools/backstory/`: add a line to one of those files to widen the choice.
+Drawn by `roster.generate_character` once everything else (veterancy and equipment included) is
+final, so a bond a damaged veteran lost is already gone and only the surviving bonds get a person.
+Every draw here comes from `char.rng.fork()`, a generator derived from the main stream's state
+without advancing it. That is what keeps a seeded roster exactly as it was before the backstory
+existed: the main stream, which the next character's name, stats and gear come from, never sees it.
+
+The value lists are pools under `dggen/data/pools/backstory/`: add a line to one of those files to
+widen the choice.
 
 A bond is with family (half the time, and then it shares the character's surname) or with someone
 else. A relationship line may end `|male` or `|female` ("father|male"), and then the person's given
@@ -75,8 +78,7 @@ def _coin(rng: Rng) -> bool:
     return rng.roll(0, 1) == 1
 
 
-def _bond_detail(char: Character, slot: int, score: int) -> BondDetail:
-    rng = char.rng
+def _bond_detail(char: Character, rng: Rng, slot: int, score: int) -> BondDetail:
     family = _coin(rng)
     relationship, sex = split_tag(
         char.data.pools.choice(FAMILY_POOL if family else OTHER_POOL, rng)
@@ -91,12 +93,15 @@ def _bond_detail(char: Character, slot: int, score: int) -> BondDetail:
 
 
 def generate_backstory(char: Character) -> None:
-    bonds = tuple(_bond_detail(char, slot, score) for slot, score in sorted(char.bonds.items()))
+    rng = char.rng.fork()  # never draw from char.rng itself: see the module docstring
+    bonds = tuple(
+        _bond_detail(char, rng, slot, score) for slot, score in sorted(char.bonds.items())
+    )
     pools = char.data.pools
     motivations = distinct(pools.values(MOTIVATIONS_POOL))
     details = distinct(pools.values(DETAILS_POOL))
     char.backstory = Backstory(
         bonds=bonds,
-        motivations=tuple(char.rng.sample(motivations, MOTIVATION_COUNT)),
-        personal_details=tuple(char.rng.sample(details, DETAIL_COUNT)),
+        motivations=tuple(rng.sample(motivations, MOTIVATION_COUNT)),
+        personal_details=tuple(rng.sample(details, DETAIL_COUNT)),
     )
