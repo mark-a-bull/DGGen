@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Protocol
 
+from dggen.backstory import backstory_sections
 from dggen.pdf import SheetWriter
 from dggen.serialize import to_back_fields, to_front_fields
 from dggen.summary import format_details
@@ -66,11 +67,16 @@ class PdfSink:
         oconus: bool,
         equip: bool,
         count: int | None,
+        backstory: bool = True,
     ) -> None:
         self.output = output
         self.title = title
         self.oconus = oconus
+        # Front, then back (equipment), then backstory. Without equipment the sheet is one page and
+        # the blank back page is added at the end, so a backstory page only goes with a full sheet.
+        self.backstory = backstory and equip
         self.pages_per_sheet = 2 if equip else 1
+        self.pages_per_sheet += 1 if self.backstory else 0
         self.count = count  # the -c override, so the table of contents can number pages
         self.writer = SheetWriter(output, pages_per_sheet=self.pages_per_sheet)
 
@@ -86,6 +92,8 @@ class PdfSink:
         self.writer.add_page(to_front_fields(character))
         if self.pages_per_sheet >= 2:
             self.writer.add_page_2(to_back_fields(character))
+        if self.backstory and character.backstory:
+            self.writer.add_backstory_page(character.name, backstory_sections(character.backstory))
 
     def finish(self) -> None:
         self.writer.save_pdf()

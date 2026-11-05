@@ -78,8 +78,8 @@ def test_cli_multiple_professions_builds_toc(tmp_path):
     assert rc == 0
     reader = PdfReader(str(out))
     professions = load_data(DataSources()).professions
-    # two cover pages, the TOC, then a front and back page for each profession's one character
-    assert len(reader.pages) == 2 + 1 + 2 * len(professions)
+    # two cover pages, the TOC, then a front, back and backstory page for each one character
+    assert len(reader.pages) == 2 + 1 + 3 * len(professions)
     titles = [entry.title for entry in reader.outline if isinstance(entry, Destination)]
     assert titles[0] == "Table of Contents"
     assert len(titles) == 1 + len(professions)

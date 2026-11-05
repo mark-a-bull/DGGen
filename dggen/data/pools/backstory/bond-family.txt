@@ -1,0 +1,20 @@
+# Family bonds: the bond shares the character's surname. One relationship per line.
+spouse
+ex-spouse
+sibling
+older brother
+older sister
+younger brother
+younger sister
+twin
+father
+mother
+stepfather
+stepmother
+adult child
+teenage child
+aunt
+uncle
+cousin
+grandparent
+grandchild

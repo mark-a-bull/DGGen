@@ -13,6 +13,7 @@ from datetime import datetime
 from textwrap import shorten
 from typing import TYPE_CHECKING, Any
 
+from reportlab.lib.utils import simpleSplit
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
@@ -25,6 +26,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from pathlib import Path
 
+    from dggen.backstory import BackstorySection
     from dggen.layout import SheetLayout
     from dggen.models import Profession
     from dggen.serialize import FieldValue
@@ -147,6 +149,41 @@ class SheetWriter:
 
     def add_page_2(self, e: dict[str, FieldValue]) -> None:
         self._add_sheet_page(appearance.SHEET_BACK_IMAGE, e)
+
+    def add_backstory_page(self, name: str, sections: Iterable[BackstorySection]) -> None:
+        """A plain page after the sheet: who the bonds are with, motivations, personal details.
+
+        The official sheet has no room for these, so they get their own page in the sheet's
+        typewriter font rather than being squeezed onto the art.
+        """
+        left = appearance.BACKSTORY_MARGIN
+        width = appearance.PAGE_WIDTH - 2 * left
+        self.c.setFillColorRGB(*appearance.TEXT_COLOR)
+        self.c.setFont(appearance.OCR_FONT, 16)
+        y = appearance.PAGE_HEIGHT - 72
+        self.c.drawString(left, y, "BACKSTORY")
+        y -= 22
+        self.c.setFont(appearance.DEFAULT_FONT, 12)
+        self.c.drawString(left, y, shrink_to_fit(name, 12, width, self._measure)[0])
+        y -= 10
+        self.c.line(left, y, left + width, y)
+        y -= 30
+        for section in sections:
+            self.c.setFont(appearance.OCR_FONT, 12)
+            self.c.drawString(left, y, section.title.upper())
+            y -= 20
+            self.c.setFont(appearance.DEFAULT_FONT, 11)
+            for line in section.lines:
+                wrapped = simpleSplit(line, appearance.DEFAULT_FONT, 11, width - 12)
+                for i, piece in enumerate(wrapped):
+                    if y < appearance.BACKSTORY_MARGIN:
+                        logger.warning("Backstory for %s does not fit on its page", name)
+                        self.c.showPage()
+                        return
+                    self.c.drawString(left + (12 if i else 0), y, piece)
+                    y -= 15
+            y -= 14
+        self.c.showPage()
 
     def save_pdf(self) -> None:
         if self.pages_per_sheet == 1:

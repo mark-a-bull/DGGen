@@ -115,6 +115,13 @@ def build_parser() -> argparse.ArgumentParser:
         "leave the field blank unless --employer is also given.",
     )
     gen.add_argument(
+        "--no-backstory",
+        action="store_false",
+        dest="auto_backstory",
+        help="Don't generate a backstory (named bonds, motivations, personal details); the PDF "
+        "then has no backstory page.",
+    )
+    gen.add_argument(
         "--name",
         action="store",
         help="Override generated name. Accepts either the sheet's 'SURNAME, Given' order "
@@ -348,6 +355,7 @@ def generation_from(options: argparse.Namespace) -> GenerationOptions:
         damaged=options.damaged,
         auto_education=options.auto_education,
         auto_employer=options.auto_employer,
+        auto_backstory=options.auto_backstory,
     )
 
 
@@ -400,6 +408,7 @@ def main(argv: list[str] | None = None) -> int:
                 oconus=options.oconus,
                 equip=options.equip,
                 count=options.count,
+                backstory=options.auto_backstory,
             )
         )
     for sink in sinks:

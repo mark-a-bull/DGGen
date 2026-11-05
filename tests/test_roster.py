@@ -105,4 +105,4 @@ class TestSinks:
         first = reader.outline[0]
         assert isinstance(first, Destination)
         assert first.title == "Table of Contents"
-        assert len(reader.pages) == 2 + 1 + 2 * 2  # covers, TOC, then 2 pages per character
+        assert len(reader.pages) == 2 + 1 + 3 * 2  # covers, TOC, then 3 pages per character

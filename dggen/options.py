@@ -54,4 +54,5 @@ class GenerationOptions:
     damaged: bool = True
     auto_education: bool = True
     auto_employer: bool = True
+    auto_backstory: bool = True
     today: date | None = None  # the date ages are measured against (default: the real today)

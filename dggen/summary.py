@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from dggen.backstory import backstory_sections
 from dggen.constants import STATS
 
 if TYPE_CHECKING:
@@ -123,7 +124,13 @@ def format_details(char: Character) -> str:
             ),
         ],
     ]
-    if char.bonds:
+    if char.backstory and not char.backstory.is_empty():
+        # Named bonds replace the bare scores; motivations and details follow.
+        sections.extend(
+            [f"{section.title}:", *(f"  {line}" for line in section.lines)]
+            for section in backstory_sections(char.backstory)
+        )
+    elif char.bonds:
         sections.append(
             ["Bonds:", *(f"  Bond {i + 1}: {score}" for i, score in char.bonds.items())]
         )

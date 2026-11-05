@@ -11,6 +11,8 @@ Open the relevant file and add a line. That's it.
   characters might work for.
 - `dggen/data/pools/institutions/university.txt` — add a college.
 - `dggen/data/pools/names/male-given.txt` — add a first name.
+- `dggen/data/pools/backstory/motivations.txt` — add a motivation; `quirks.txt` adds a personal detail, and
+  `bond-family.txt` / `bond-other.txt` add a kind of bond (family ones share the character's surname).
 
 Blank lines and lines starting with `#` are ignored, so a file can carry a one-line comment at
 the top explaining what it's for.

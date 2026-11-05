@@ -15,6 +15,9 @@ PAGE_HEIGHT = 792
 PAGE_SIZE = (PAGE_WIDTH, PAGE_HEIGHT)
 
 TEXT_COLOR = (0, 0.1, 0.5)
+# Left/right/bottom margin of the plain backstory page that follows each character's sheet.
+BACKSTORY_MARGIN = 56
+
 DEFAULT_FONT = "Special Elite"
 OCR_FONT = "OCRA"
 
