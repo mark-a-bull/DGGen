@@ -1,20 +1,22 @@
 # Family bonds: the bond shares the character's surname. One relationship per line.
+# End a line with |male or |female when the relationship has a sex (the person's given name then
+# comes from that name pool); a line without a tag can be either.
 spouse
 ex-spouse
 sibling
-older brother
-older sister
-younger brother
-younger sister
+older brother|male
+older sister|female
+younger brother|male
+younger sister|female
 twin
-father
-mother
-stepfather
-stepmother
+father|male
+mother|female
+stepfather|male
+stepmother|female
 adult child
 teenage child
-aunt
-uncle
+aunt|female
+uncle|male
 cousin
 grandparent
 grandchild

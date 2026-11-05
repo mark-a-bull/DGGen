@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import replace
+from typing import ClassVar
 
 import pytest
 from pypdf import PdfReader
@@ -14,20 +15,28 @@ from dggen.backstory import Backstory, BondDetail
 from dggen.character import Character
 from dggen.cli import build_parser, main
 from dggen.data import load_data
+from dggen.errors import DataError
 from dggen.options import DataSources, GenerationOptions
 from dggen.pdf import SheetWriter
+from dggen.pools import Pools, UnknownPoolError
 from dggen.rng import Rng
-from dggen.roster import generate_character
+from dggen.roster import generate_character, generate_roster
 from dggen.rules import backstory as rule
 from dggen.serialize import to_back_fields, to_front_fields
 from dggen.sinks import PdfSink
 from dggen.summary import BackstorySection, backstory_sections, describe_bond, format_details
+from dggen.validate import validate_backstory
 
 
 def _make(data, profession="agent", seed=1, sex="male", **options):
     return generate_character(
         data, Rng(seed), sex, data.professions[profession], GenerationOptions(**options)
     )
+
+
+def _relationships(data, pool_id):
+    """The relationships in a bond pool, without any |male / |female tags."""
+    return {rule.split_tag(value)[0] for value in data.pools.values(pool_id)}
 
 
 class TestPools:
@@ -67,8 +76,8 @@ class TestGenerateBackstory:
         assert set(details) <= set(data.pools.values(rule.DETAILS_POOL))
 
     def test_family_bonds_share_the_characters_surname_and_others_do_not(self, data):
-        family = set(data.pools.values(rule.FAMILY_POOL))
-        other = set(data.pools.values(rule.OTHER_POOL))
+        family = _relationships(data, rule.FAMILY_POOL)
+        other = _relationships(data, rule.OTHER_POOL)
         seen_family = seen_other = 0
         for seed in range(40):
             char = _make(data, seed=seed, name_override="Ada Quill")
@@ -136,6 +145,159 @@ class TestSeedsAreUndisturbed:
             assert with_it.backstory is not None
 
 
+class TestSplitTag:
+    @pytest.mark.parametrize(
+        ("entry", "expected"),
+        [
+            ("father|male", ("father", "male")),
+            ("mother|female", ("mother", "female")),
+            ("cousin", ("cousin", None)),
+            (" aunt | female ", ("aunt", "female")),
+            ("odd|name|male", ("odd|name", "male")),
+            ("sibling|other", ("sibling|other", None)),  # an unknown tag is left visible
+        ],
+    )
+    def test_splits_a_trailing_sex_tag_off_a_relationship(self, entry, expected):
+        assert rule.split_tag(entry) == expected
+
+    def test_distinct_drops_repeats_and_keeps_order(self):
+        assert rule.distinct(["b", "a", "b", "c", "a"]) == ["b", "a", "c"]
+
+
+class TestSexMatchedNames:
+    """A "father" gets a man's name and a "mother" a woman's; untagged relationships are either."""
+
+    GENDERED: ClassVar[dict[str, str]] = {
+        "father": "male",
+        "stepfather": "male",
+        "uncle": "male",
+        "older brother": "male",
+        "younger brother": "male",
+        "mother": "female",
+        "stepmother": "female",
+        "aunt": "female",
+        "older sister": "female",
+        "younger sister": "female",
+    }
+
+    def test_every_gendered_relationship_in_the_bundled_pool_is_tagged(self, data):
+        tags = dict(rule.split_tag(v) for v in data.pools.values(rule.FAMILY_POOL))
+        for relationship, sex in self.GENDERED.items():
+            assert tags[relationship] == sex, relationship
+
+    def test_the_given_name_follows_the_tag(self, data):
+        male = set(data.pools.values("names/male-given"))
+        female = set(data.pools.values("names/female-given"))
+        seen = {"male": 0, "female": 0}
+        neutral = {"male": 0, "female": 0}
+        for seed in range(250):
+            story = _make(data, seed=seed).backstory
+            assert story is not None
+            for bond in story.bonds:
+                given = bond.name.split(", ")[1]
+                sex = self.GENDERED.get(bond.relationship)
+                if sex == "male":
+                    assert given in male, bond
+                    seen["male"] += 1
+                elif sex == "female":
+                    assert given in female, bond
+                    seen["female"] += 1
+                elif given in male - female:
+                    neutral["male"] += 1
+                elif given in female - male:
+                    neutral["female"] += 1
+        # Positive controls: gendered bonds of both sexes came up, and untagged ones got both.
+        assert seen["male"] > 20
+        assert seen["female"] > 20
+        assert neutral["male"] > 20
+        assert neutral["female"] > 20
+
+    def test_the_tag_never_shows_in_the_output(self, data):
+        for seed in range(60):
+            story = _make(data, seed=seed).backstory
+            assert story is not None
+            assert not [b for b in story.bonds if "|" in b.relationship]
+
+
+class TestDuplicatePoolLines:
+    def test_a_line_repeated_in_a_pool_is_never_drawn_twice(self, data, monkeypatch):
+        real = Pools.values
+
+        def values(self, ref):
+            if ref == rule.MOTIVATIONS_POOL:
+                return ["same"] * 5 + ["other"]
+            return real(self, ref)
+
+        monkeypatch.setattr(Pools, "values", values)
+        for seed in range(40):
+            story = _make(data, seed=seed).backstory
+            assert story is not None
+            assert sorted(story.motivations) == ["other", "same"]
+
+
+class TestValidateBackstory:
+    @staticmethod
+    def _break(monkeypatch, replacements):
+        """Make `Pools.values` return (or raise) something else for the given pool ids."""
+        real = Pools.values
+
+        def values(self, ref):
+            if ref in replacements:
+                outcome = replacements[ref]
+                if isinstance(outcome, Exception):
+                    raise outcome
+                return outcome
+            return real(self, ref)
+
+        monkeypatch.setattr(Pools, "values", values)
+
+    def test_the_bundled_pools_pass(self, data):
+        validate_backstory(data)
+
+    def test_a_missing_pool_is_named(self, data, monkeypatch):
+        error = UnknownPoolError(rule.DETAILS_POOL, [])
+        self._break(monkeypatch, {rule.DETAILS_POOL: error})
+        with pytest.raises(DataError, match="backstory pool 'backstory/quirks'"):
+            validate_backstory(data)
+
+    @pytest.mark.parametrize("pool_id", [rule.MOTIVATIONS_POOL, rule.DETAILS_POOL])
+    def test_a_pool_too_short_to_sample_is_reported(self, data, monkeypatch, pool_id):
+        self._break(monkeypatch, {pool_id: ["only one"]})
+        with pytest.raises(DataError, match="needs at least 2 different values"):
+            validate_backstory(data)
+
+    def test_repeats_do_not_count_towards_the_minimum(self, data, monkeypatch):
+        self._break(monkeypatch, {rule.MOTIVATIONS_POOL: ["same", "same", "same"]})
+        with pytest.raises(DataError, match="needs at least 2 different values"):
+            validate_backstory(data)
+
+    @pytest.mark.parametrize("line", ["father|mael", "|male", "a|b|c"])
+    def test_a_malformed_tag_is_reported(self, data, monkeypatch, line):
+        self._break(monkeypatch, {rule.FAMILY_POOL: ["cousin", line]})
+        with pytest.raises(DataError, match="should be 'relationship'"):
+            validate_backstory(data)
+
+    def test_every_problem_is_reported_at_once(self, data, monkeypatch):
+        self._break(
+            monkeypatch,
+            {rule.MOTIVATIONS_POOL: ["one"], rule.DETAILS_POOL: ["one"], rule.OTHER_POOL: ["x|y"]},
+        )
+        with pytest.raises(DataError, match=r"\(3 problems\)"):
+            validate_backstory(data)
+
+    def test_the_cli_exits_2_at_startup_and_prints_nothing(self, monkeypatch, capsys):
+        self._break(monkeypatch, {rule.MOTIVATIONS_POOL: ["one"]})
+        assert main(["-t", "agent", "--seed", "1"]) == 2
+        captured = capsys.readouterr()
+        assert captured.out == ""  # no half-printed roster
+        assert "backstory/motivations" in captured.err
+
+    def test_no_backstory_does_not_need_the_pools(self, monkeypatch, capsys):
+        self._break(monkeypatch, {rule.MOTIVATIONS_POOL: ["one"]})
+        assert main(["-t", "agent", "--seed", "1", "--no-backstory"]) == 0
+        assert "Statistics:" in capsys.readouterr().out
+
+
 class TestAwkwardNames:
     """`--name` is free text, so the character's own surname may be missing or oddly shaped."""
 
@@ -144,7 +306,7 @@ class TestAwkwardNames:
         [("Smith Jr.", "SMITH"), ("VAN DYKE, Anna", "VAN DYKE"), ("Cher", "CHER")],
     )
     def test_family_bonds_take_the_surname_and_not_a_suffix(self, data, name, expected):
-        family = set(data.pools.values(rule.FAMILY_POOL))
+        family = _relationships(data, rule.FAMILY_POOL)
         surnames = set()
         for seed in range(60):
             story = _make(data, seed=seed, name_override=name).backstory
@@ -239,10 +401,10 @@ class TestSections:
         ]
 
     def test_a_bond_reads_relationship_person_in_reading_order_and_score(self):
-        assert describe_bond(BondDetail(1, "mentor", "ROE, Sam", 9)) == "mentor: Sam ROE (9)"
+        assert describe_bond(BondDetail(1, "mentor", "ROE, Sam", 9)) == "mentor: Sam ROE (bond 9)"
 
     def test_a_bond_with_a_single_word_name_still_reads(self):
-        assert describe_bond(BondDetail(0, "friend", "CHER", 7)) == "friend: CHER (7)"
+        assert describe_bond(BondDetail(0, "friend", "CHER", 7)) == "friend: CHER (bond 7)"
 
     def test_is_empty_is_true_only_when_nothing_is_there(self):
         assert Backstory().is_empty()
@@ -289,6 +451,40 @@ class TestPdf:
         assert len(reader.pages) == 2 + 2 + 1  # covers, two single pages, blank back page
         assert not any(page.extract_text().startswith("BACKSTORY") for page in reader.pages)
 
+    def test_the_backstory_page_carries_that_characters_own_backstory(self, tmp_path, data):
+        """Each page holds its own character's name, bonds, motivations and details (whitespace
+        is ignored, since the page wraps lines)."""
+        reader = _pages(tmp_path)
+        expected = list(
+            generate_roster(data, Rng(1), [data.professions["nurse"]], GenerationOptions(), count=2)
+        )
+        assert len(expected) == 2
+        pages = []
+        for index, (_profession, char) in enumerate(expected):
+            assert char.backstory is not None
+            page = "".join(reader.pages[4 + 3 * index].extract_text().split())
+            pages.append(page)
+            assert "".join(char.name.split()) in page
+            for section in backstory_sections(char.backstory):
+                for line in section.lines:
+                    assert "".join(line.split()) in page, line
+        assert pages[0] != pages[1]  # different characters, different pages
+
+    def test_a_sink_expecting_a_backstory_refuses_a_character_without_one(self, tmp_path, data):
+        sink = PdfSink(tmp_path / "x.pdf", title=None, oconus=False, equip=True, count=None)
+        char = _make(data, auto_backstory=False)
+        with pytest.raises(ValueError, match="backstory"):
+            sink.add(char)
+
+    def test_a_sink_told_there_is_no_backstory_accepts_characters_without_one(self, tmp_path, data):
+        out = tmp_path / "x.pdf"
+        sink = PdfSink(out, title=None, oconus=False, equip=True, count=None, backstory=False)
+        sink.begin([data.professions["agent"]])
+        sink.start_profession(data.professions["agent"])
+        sink.add(_make(data, auto_backstory=False))
+        sink.finish()
+        assert len(PdfReader(str(out)).pages) == 2 + 2  # covers, then front and back
+
     def test_a_sink_without_equipment_ignores_the_backstory_option(self, tmp_path):
         sink = PdfSink(
             tmp_path / "x.pdf", title=None, oconus=False, equip=False, count=None, backstory=True
@@ -304,6 +500,53 @@ class TestPdf:
         assert "does not fit" in caplog.text
         assert "Bonds: xxxx" in caplog.text  # says where it stopped
         assert "'ROE, Sam'" in caplog.text  # the name is quoted, so it cannot forge a log line
+
+    def test_an_overflowing_page_still_ends_cleanly_so_the_page_count_holds(self, tmp_path):
+        writer = SheetWriter(tmp_path / "two.pdf", pages_per_sheet=2)
+        too_long = [BackstorySection("Bonds", tuple(f"line {i}" for i in range(80)))]
+        writer.add_backstory_page("ROE, Sam", too_long)
+        writer.add_backstory_page("DOE, Jo", [BackstorySection("Bonds", ("fits",))])
+        writer.c.save()
+        assert len(PdfReader(str(tmp_path / "two.pdf")).pages) == 2
+
+    def test_real_backstories_always_fit_their_page(self, tmp_path, data, caplog):
+        """Negative control for the overflow warning: it must not fire on ordinary output."""
+        writer = SheetWriter(tmp_path / "all.pdf", pages_per_sheet=3)
+        longest = []
+        with caplog.at_level(logging.WARNING, logger="dggen"):
+            for profession in data.professions.values():
+                for seed in range(3):
+                    char = generate_character(
+                        data,
+                        Rng(seed),
+                        "male",
+                        profession,
+                        GenerationOptions(veterancy_enabled=True),
+                    )
+                    assert char.backstory is not None
+                    sections = backstory_sections(char.backstory)
+                    longest.append(sum(len(s.lines) for s in sections))
+                    writer.add_backstory_page(char.name, sections)
+        assert "does not fit" not in caplog.text
+        assert max(longest) >= 8  # the busiest were genuinely exercised (4 bonds + 2 + 2)
+
+    def test_a_long_line_wraps_with_a_hanging_indent_inside_the_margins(
+        self, tmp_path, monkeypatch
+    ):
+        writer = SheetWriter(tmp_path / "wrap.pdf")
+        recorder = _Recorder(writer.c)
+        monkeypatch.setattr(writer, "c", recorder)
+        line = " ".join(["wandering"] * 30)
+        writer.add_backstory_page("ROE, Sam", [BackstorySection("Personal details", (line,))])
+        pieces = [d for d in recorder.drawn if d[2].startswith("wandering")]
+        assert len(pieces) >= 3  # it really wrapped
+        left = appearance.BACKSTORY_MARGIN
+        right_edge = appearance.PAGE_WIDTH - left
+        assert pieces[0][0] == left
+        assert {x for x, *_ in pieces[1:]} == {left + appearance.BACKSTORY_HANGING_INDENT}
+        for x, _y, text, size in pieces:
+            assert size == appearance.BACKSTORY_BODY_SIZE  # wrapped, not shrunk
+            assert x + pdfmetrics.stringWidth(text, appearance.DEFAULT_FONT, size) <= right_edge
 
     def test_a_heading_is_never_left_alone_at_the_bottom(self, tmp_path, caplog, monkeypatch):
         """With room for the heading but not for a line under it, the heading is dropped too."""

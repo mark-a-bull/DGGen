@@ -27,13 +27,14 @@ class BackstorySection:
 
 
 def describe_bond(bond: BondDetail) -> str:
-    """ "mentor: Sam ROE (9)": the relationship, the person in reading order, and the score.
+    """ "mentor: Sam ROE (bond 9)": the relationship, the person in reading order, the score.
 
     The sheet writes names "SURNAME, Given"; that order reads badly inside a sentence-like line.
+    The score is labelled so it cannot be mistaken for an age.
     """
     surname, _, given = bond.name.partition(", ")
     person = f"{given} {surname}" if given else surname
-    return f"{bond.relationship}: {person} ({bond.score})"
+    return f"{bond.relationship}: {person} (bond {bond.score})"
 
 
 def backstory_sections(backstory: Backstory) -> list[BackstorySection]:

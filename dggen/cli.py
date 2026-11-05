@@ -26,6 +26,7 @@ from dggen.rng import Rng
 from dggen.roster import generate_roster
 from dggen.sinks import PdfSink, Sink, TextSink
 from dggen.text import TemplateError, parse_date
+from dggen.validate import validate_backstory
 
 logger = logging.getLogger("dggen")
 
@@ -374,6 +375,8 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         data = load_data(sources_from(options))
+        if options.auto_backstory:
+            validate_backstory(data)
         professions = (
             [find_profession(data.professions, options.type)]
             if options.type

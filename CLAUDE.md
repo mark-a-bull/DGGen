@@ -261,7 +261,8 @@ profession, for each character `Character.generate(...)` → `pdf.SheetWriter` d
   `GenerationOptions` are plain frozen dataclasses (no argparse) taken by `load_data` and `Character.generate`;
   `roster.generate_roster(data, rng, professions, options, count=, sex=, equip=)` lazily yields
   `(profession, character)` with each character already equipped and its footnotes flushed (use
-  `generate_character` rather than repeating generate → equip → `print_footnotes`); `sinks.TextSink` / `PdfSink`
+  `generate_character` rather than repeating generate → equip → backstory → `print_footnotes`; the backstory is drawn
+  there, outside `PIPELINE`, so a custom `pipeline=` cannot reorder it); `sinks.TextSink` / `PdfSink`
   consume them through four methods (`begin`, `start_profession`, `add`, `finish`), so a new output format is one
   more class. `summary.py` renders the text view; `Profession.roster_label()` gives the roster/bookmark label.
 
@@ -317,7 +318,15 @@ Adding a profession set means adding a JSON file, not touching code.
   `Character.generate` alone leaves `char.backstory` as `None`. In the PDF it is a plain third page per character
   (`SheetWriter.add_backstory_page`; `PdfSink.pages_per_sheet` is 3, and the TOC numbering follows it); unequipped
   (`-u`) sheets have none. The page never leaves a heading alone at the bottom, shrinks a line with a word too wide to wrap, and
-  warns naming where it stopped if content does not fit. Family bonds share the character's surname, taken from `char.name` before the comma.
+  warns naming where it stopped if content does not fit. Family bonds share the character's surname (`char.name`
+  before the comma, or its first word when there is no comma; a drawn surname if there is none). A relationship line
+  in a bond pool may end `|male` or `|female` (`father|male`): the person's given name then comes from that name pool,
+  an untagged line (`cousin`) is either, and `rules.backstory.split_tag` strips the tag so it never shows. Pool lines
+  are de-duplicated before sampling. `validate.validate_backstory` checks the four pools (present, enough different
+  values, well-formed tags); it is **not** part of `validate_data`, because `--no-backstory` data need not have them,
+  so `cli.main` calls it only when the backstory is on, and a bad pool exits 2 at startup. `PdfSink` numbers pages for
+  a backstory page after every sheet, so it raises `ValueError` if handed a character without one (pass
+  `backstory=False` to the sink when generating with `auto_backstory=False`).
 - Logging (`logging_setup.init_logger`) configures only the `dggen` logger and writes to **stderr**, so stdout stays the
   character summary. Warnings and errors always show; `-v` adds information, `-vv` debug, `-vvv` debug with timestamps and
   source locations. Truncation warnings (a kit that overflows the sheet, out of footnote markers) therefore appear with no

@@ -1,0 +1,325 @@
+{
+ "agent-1-male": {
+  "bonds": [
+   [
+    0,
+    "friend from down the street",
+    "HOLLAR, Angelica",
+    11
+   ],
+   [
+    1,
+    "stepfather",
+    "CALDERON, Cortez",
+    11
+   ],
+   [
+    2,
+    "mother",
+    "CALDERON, Gladys",
+    11
+   ]
+  ],
+  "motivations": [
+   "Make amends for a mistake nobody else knows about",
+   "Protect the people at home from what they never see"
+  ],
+  "name": "CALDERON, Ruben",
+  "personal_details": [
+   "Plays chess against strangers online",
+   "Volunteers at a local shelter on weekends"
+  ]
+ },
+ "agent-2-female": {
+  "bonds": [
+   [
+    0,
+    "informant",
+    "SHERIDAN, Taylor",
+    16
+   ],
+   [
+    1,
+    "classmate from training",
+    "BEDNARZ, Gretchen",
+    16
+   ],
+   [
+    2,
+    "confessor",
+    "BROWNFIELD, Annie",
+    16
+   ]
+  ],
+  "motivations": [
+   "Pay back a debt that can never be repaid",
+   "Protect the people at home from what they never see"
+  ],
+  "name": "WEBRE, Terra",
+  "personal_details": [
+   "Fixes old radios as a hobby",
+   "Can name every bird by its call"
+  ]
+ },
+ "named-with-a-suffix": {
+  "bonds": [
+   [
+    0,
+    "sibling",
+    "SMITH, Wyatt",
+    11
+   ],
+   [
+    1,
+    "mentor",
+    "ZHENG, Alec",
+    11
+   ],
+   [
+    2,
+    "former teammate",
+    "BARCO, Caitlin",
+    11
+   ]
+  ],
+  "motivations": [
+   "Stay one step ahead of whoever is asking questions",
+   "Shield a younger colleague from the worst of it"
+  ],
+  "name": "SMITH, Kim Jr.",
+  "personal_details": [
+   "Sleeps badly and keeps a pot of coffee going all night",
+   "Studies a second language on the commute"
+  ]
+ },
+ "nurse-3-female": {
+  "bonds": [
+   [
+    0,
+    "former teammate",
+    "LUEDTKE, Thomas",
+    12
+   ],
+   [
+    1,
+    "mother",
+    "DIGBY, Yvonne",
+    12
+   ]
+  ],
+  "motivations": [
+   "Do the job right, whatever the job turns out to be",
+   "Protect the people at home from what they never see"
+  ],
+  "name": "DIGBY, Kim",
+  "personal_details": [
+   "Never sits with their back to a door",
+   "Hums while working, and does not notice"
+  ]
+ },
+ "pilot-7-male": {
+  "bonds": [
+   [
+    0,
+    "adult child",
+    "GAFFORD, Dewayne",
+    11
+   ]
+  ],
+  "motivations": [
+   "Keep the people closest to them out of it",
+   "Make amends for a mistake nobody else knows about"
+  ],
+  "name": "GAFFORD, Casey",
+  "personal_details": [
+   "Sleeps badly and keeps a pot of coffee going all night",
+   "Reads detective novels and picks apart the plots"
+  ]
+ },
+ "police-5-male": {
+  "bonds": [
+   [
+    0,
+    "junior colleague they trained",
+    "FOBBS, Ray",
+    9
+   ],
+   [
+    1,
+    "bandmate",
+    "ZEIGER, Channing",
+    9
+   ],
+   [
+    2,
+    "former partner",
+    "AVERA, Nicholas",
+    9
+   ]
+  ],
+  "motivations": [
+   "Make amends for a mistake nobody else knows about",
+   "Shield a younger colleague from the worst of it"
+  ],
+  "name": "MILLINER, Nicholaus",
+  "personal_details": [
+   "Reads detective novels and picks apart the plots",
+   "Tells the same joke at every meeting"
+  ]
+ },
+ "scientist-6-female": {
+  "bonds": [
+   [
+    0,
+    "father",
+    "SANFILIPPO, Rodolfo",
+    17
+   ],
+   [
+    1,
+    "friend from down the street",
+    "FLAVIN, Rickie",
+    17
+   ],
+   [
+    2,
+    "childhood friend",
+    "JACOBY, Mohammed",
+    17
+   ]
+  ],
+  "motivations": [
+   "Stay useful, because being useful is the only thing that feels real",
+   "Protect the people at home from what they never see"
+  ],
+  "name": "SANFILIPPO, Rosanna",
+  "personal_details": [
+   "Sleeps badly and keeps a pot of coffee going all night",
+   "Plays chess against strangers online"
+  ]
+ },
+ "soldier-4-male": {
+  "bonds": [
+   [
+    0,
+    "cousin",
+    "DIBENEDETTO, Dina",
+    8
+   ],
+   [
+    1,
+    "protected witness",
+    "CAMARGO, Frank",
+    8
+   ],
+   [
+    2,
+    "former supervisor",
+    "GREENLY, Jody",
+    8
+   ],
+   [
+    3,
+    "aunt",
+    "DIBENEDETTO, Guadalupe",
+    8
+   ]
+  ],
+  "motivations": [
+   "Do the job right, whatever the job turns out to be",
+   "Follow the question that will not let go"
+  ],
+  "name": "DIBENEDETTO, Brady",
+  "personal_details": [
+   "Hums while working, and does not notice",
+   "Reads detective novels and picks apart the plots"
+  ]
+ },
+ "veteran-nurse-9": {
+  "bonds": [
+   [
+    0,
+    "former supervisor",
+    "GOWAN, Tammy",
+    16
+   ],
+   [
+    1,
+    "former partner",
+    "GREENLEAF, Josephine",
+    16
+   ]
+  ],
+  "motivations": [
+   "Make amends for a mistake nobody else knows about",
+   "Find out what really happened"
+  ],
+  "name": "JUNE, Helen",
+  "personal_details": [
+   "Grows tomatoes and gives them away",
+   "Reads detective novels and picks apart the plots"
+  ]
+ },
+ "veteran-soldier-8": {
+  "bonds": [
+   [
+    0,
+    "stepfather",
+    "DELONEY, Donny",
+    11
+   ],
+   [
+    1,
+    "partner",
+    "POPHAM, Nikita",
+    11
+   ],
+   [
+    2,
+    "former supervisor",
+    "POUNCY, Luther",
+    11
+   ],
+   [
+    3,
+    "grandchild",
+    "DELONEY, Mickey",
+    11
+   ]
+  ],
+  "motivations": [
+   "Keep a promise made to someone now gone",
+   "Make amends for a mistake nobody else knows about"
+  ],
+  "name": "DELONEY, Vaughn",
+  "personal_details": [
+   "Reads detective novels and picks apart the plots",
+   "Volunteers at a local shelter on weekends"
+  ]
+ },
+ "veteran-that-lost-a-bond": {
+  "bonds": [
+   [
+    0,
+    "grandchild",
+    "DIBENEDETTO, Kendall",
+    5
+   ],
+   [
+    1,
+    "grandparent",
+    "DIBENEDETTO, James",
+    5
+   ]
+  ],
+  "motivations": [
+   "Keep a steady income for the people who depend on it",
+   "Prove the official story wrong"
+  ],
+  "name": "DIBENEDETTO, Brady",
+  "personal_details": [
+   "Keeps a tidy desk and a messy car",
+   "Cooks elaborate meals for people who never come"
+  ]
+ }
+}

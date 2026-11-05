@@ -1,12 +1,15 @@
 """Backstory: name each bond, and pick a couple of motivations and personal details.
 
-Runs last in the pipeline, after veterancy and derived attributes, so a bond a damaged veteran lost
+Drawn by `roster.generate_character` *after* the equipment, not by a `PIPELINE` step: the equipment
+takes its draws from the same `Rng`, so a step ahead of it would change every seeded character's
+gear. It runs once everything else (veterancy included) is final, so a bond a damaged veteran lost
 is already gone and only the surviving bonds get a person. The value lists are pools under
 `dggen/data/pools/backstory/`: add a line to one of those files to widen the choice.
 
 A bond is with family (half the time, and then it shares the character's surname) or with someone
-else. Their given name is drawn male or female at random from the same name pools the character's
-own name came from, so `--names`/`--male-given-names` etc. apply to them too.
+else. A relationship line may end `|male` or `|female` ("father|male"), and then the person's given
+name comes from that name pool; an untagged one ("cousin") is either, at random. The names come
+from the same pools as the character's own, so `--names`/`--male-given-names` etc. apply to them.
 """
 
 from __future__ import annotations
@@ -16,6 +19,8 @@ from typing import TYPE_CHECKING
 from dggen.backstory import Backstory, BondDetail
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from dggen.character import Character
     from dggen.rng import Rng
 
@@ -28,6 +33,29 @@ MOTIVATION_COUNT = 2
 DETAIL_COUNT = 2
 
 POOL_IDS = (FAMILY_POOL, OTHER_POOL, MOTIVATIONS_POOL, DETAILS_POOL)
+
+MALE = "male"
+FEMALE = "female"
+SEX_TAGS = (MALE, FEMALE)
+
+
+def split_tag(entry: str) -> tuple[str, str | None]:
+    """("father", "male") from "father|male"; ("cousin", None) from an untagged "cousin".
+
+    An unrecognised tag stays part of the text, so a typo is visible in the output and
+    `validate.validate_backstory` reports it at startup.
+    """
+    text, bar, tag = entry.rpartition("|")
+    tag = tag.strip()
+    if bar and tag in SEX_TAGS:
+        return text.strip(), tag
+    return entry, None
+
+
+def distinct(values: Sequence[str]) -> list[str]:
+    """`values` without repeats, in order: `Rng.sample` picks positions, so a line repeated in a
+    pool could otherwise be drawn twice."""
+    return list(dict.fromkeys(values))
 
 
 def _surname(char: Character) -> str | None:
@@ -50,8 +78,12 @@ def _coin(rng: Rng) -> bool:
 def _bond_detail(char: Character, slot: int, score: int) -> BondDetail:
     rng = char.rng
     family = _coin(rng)
-    relationship = char.data.pools.choice(FAMILY_POOL if family else OTHER_POOL, rng)
-    given_names = char.data.male_given_names if _coin(rng) else char.data.female_given_names
+    relationship, sex = split_tag(
+        char.data.pools.choice(FAMILY_POOL if family else OTHER_POOL, rng)
+    )
+    if sex is None:
+        sex = MALE if _coin(rng) else FEMALE
+    given_names = char.data.male_given_names if sex == MALE else char.data.female_given_names
     # Family shares the character's surname; anyone else, or a family bond when the character
     # has no usable surname, gets one of their own.
     surname = (_surname(char) if family else None) or char.data.family_names(rng).upper()
@@ -61,8 +93,8 @@ def _bond_detail(char: Character, slot: int, score: int) -> BondDetail:
 def generate_backstory(char: Character) -> None:
     bonds = tuple(_bond_detail(char, slot, score) for slot, score in sorted(char.bonds.items()))
     pools = char.data.pools
-    motivations = pools.values(MOTIVATIONS_POOL)
-    details = pools.values(DETAILS_POOL)
+    motivations = distinct(pools.values(MOTIVATIONS_POOL))
+    details = distinct(pools.values(DETAILS_POOL))
     char.backstory = Backstory(
         bonds=bonds,
         motivations=tuple(char.rng.sample(motivations, MOTIVATION_COUNT)),

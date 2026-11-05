@@ -97,7 +97,11 @@ def _toc_rows(reader):
     return rows
 
 
-@pytest.mark.parametrize("extra", [["-u"], []], ids=["unequipped", "equipped"])
+@pytest.mark.parametrize(
+    "extra",
+    [["-u"], [], ["--no-backstory"]],
+    ids=["unequipped", "equipped", "no-backstory"],
+)
 def test_toc_page_numbers_match_the_real_bookmarks(tmp_path, extra):
     """Every TOC row's printed page must be the page its bookmark really lands on - including
     when -c overrides the per-profession roster size, and for the blank back-page row."""
