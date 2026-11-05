@@ -14,8 +14,8 @@ Agent's Handbook. The [ReportLab](https://www.reportlab.com/dev/opensource/) and
 
 By default, DGGen prints a readable text summary of each generated character (stats, skills, bonds, equipment, etc.)
 straight to your terminal — nothing is written to disk. Add the `--pdf` flag to also render a PDF character sheet
-(one-per-page if unequipped, two-per-page otherwise, with the second page included as the final page in the PDF for
-unequipped characters). With `--pdf`, characters of alternating genders are created in each of the following
+(one page each if unequipped, with the blank second page included as the final page in the PDF; otherwise three: front,
+equipment and backstory). With `--pdf`, characters of alternating genders are created in each of the following
 professions by default:
 
 * Anthropologist

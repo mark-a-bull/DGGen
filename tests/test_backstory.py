@@ -7,18 +7,21 @@ from dataclasses import replace
 
 import pytest
 from pypdf import PdfReader
+from reportlab.pdfbase import pdfmetrics
 
-from dggen.backstory import Backstory, BackstorySection, BondDetail, backstory_sections
+from dggen import appearance
+from dggen.backstory import Backstory, BondDetail
 from dggen.character import Character
 from dggen.cli import build_parser, main
-from dggen.options import GenerationOptions
+from dggen.data import load_data
+from dggen.options import DataSources, GenerationOptions
 from dggen.pdf import SheetWriter
 from dggen.rng import Rng
 from dggen.roster import generate_character
 from dggen.rules import backstory as rule
 from dggen.serialize import to_back_fields, to_front_fields
 from dggen.sinks import PdfSink
-from dggen.summary import format_details
+from dggen.summary import BackstorySection, backstory_sections, describe_bond, format_details
 
 
 def _make(data, profession="agent", seed=1, sex="male", **options):
@@ -48,7 +51,10 @@ class TestGenerateBackstory:
         for bond in char.backstory.bonds:
             assert bond.score == char.bonds[bond.slot]
             assert bond.relationship
-            assert ", " in bond.name  # "SURNAME, Given", like the character's own name
+            assert bond.name.count(", ") == 1  # "SURNAME, Given", like the character's own name
+            surname, given = bond.name.split(", ")
+            assert surname == surname.upper()
+            assert given
 
     def test_motivations_and_details_are_distinct_picks_from_their_pools(self, data):
         char = _make(data, seed=4)
@@ -75,6 +81,7 @@ class TestGenerateBackstory:
                     seen_family += 1
                 else:
                     assert bond.relationship in other
+                    assert surname != "QUILL"  # someone else's own family name
                     seen_other += 1
         # Positive controls: both kinds really do come up, so the assertions above ran.
         assert seen_family > 10
@@ -129,17 +136,83 @@ class TestSeedsAreUndisturbed:
             assert with_it.backstory is not None
 
 
+class TestAwkwardNames:
+    """`--name` is free text, so the character's own surname may be missing or oddly shaped."""
+
+    @pytest.mark.parametrize(
+        ("name", "expected"),
+        [("Smith Jr.", "SMITH"), ("VAN DYKE, Anna", "VAN DYKE"), ("Cher", "CHER")],
+    )
+    def test_family_bonds_take_the_surname_and_not_a_suffix(self, data, name, expected):
+        family = set(data.pools.values(rule.FAMILY_POOL))
+        surnames = set()
+        for seed in range(60):
+            story = _make(data, seed=seed, name_override=name).backstory
+            assert story is not None
+            surnames |= {
+                bond.name.split(",")[0] for bond in story.bonds if bond.relationship in family
+            }
+        assert expected in surnames
+        assert not [s for s in surnames if "Jr" in s]
+
+    def test_a_character_with_no_surname_still_gets_family_with_a_surname(self, data):
+        for seed in range(20):
+            story = _make(data, seed=seed, name_override=", Kim").backstory
+            assert story is not None
+            for bond in story.bonds:
+                assert bond.name.split(", ")[0].strip()
+
+    def test_a_profession_with_no_bonds_still_gets_motivations_and_details(self, data):
+        profession = replace(data.professions["agent"], bonds=0)
+        char = generate_character(data, Rng(1), "male", profession, GenerationOptions())
+        assert char.bonds == {}
+        assert char.backstory is not None
+        assert char.backstory.bonds == ()
+        text = format_details(char)
+        assert "Bonds:" not in text
+        assert "Motivations:" in text
+
+
+class TestNamePools:
+    def test_bond_names_come_from_the_same_pools_as_the_characters_own(self, tmp_path):
+        """--surnames, --male-given-names and --female-given-names apply to bonds too."""
+        files = {}
+        for key, value in (("sur", "ZZSUR"), ("male", "ZZMALE"), ("female", "ZZFEMALE")):
+            files[key] = tmp_path / f"{key}.txt"
+            files[key].write_text(value + "\n", encoding="utf-8")
+        loaded = load_data(
+            DataSources(
+                surnames=str(files["sur"]),
+                male_given_names=str(files["male"]),
+                female_given_names=str(files["female"]),
+            )
+        )
+        given, surnames = set(), set()
+        for seed in range(30):
+            story = generate_character(
+                loaded, Rng(seed), "male", loaded.professions["agent"], GenerationOptions()
+            ).backstory
+            assert story is not None
+            for bond in story.bonds:
+                surname, given_name = bond.name.split(", ")
+                surnames.add(surname)
+                given.add(given_name)
+        assert surnames == {"ZZSUR"}  # the character's own surname is ZZSUR too
+        assert given == {"ZZMALE", "ZZFEMALE"}
+
+
 class TestSummary:
     def test_names_the_bonds_and_lists_motivations_and_details(self, data):
         char = _make(data, seed=2)
         assert char.backstory is not None
         text = format_details(char)
         for bond in char.backstory.bonds:
-            assert f"  {bond.describe()}" in text
+            assert f"  {describe_bond(bond)}" in text
         assert "Motivations:" in text
         assert "Personal details:" in text
+        assert "Bond 1:" not in text  # the named bonds replace the bare scores
         for line in (*char.backstory.motivations, *char.backstory.personal_details):
-            assert f"  {line}\n" in text
+            assert f"  {line}" in text.splitlines()
 
     def test_without_a_backstory_the_bare_bond_scores_are_shown(self, data):
         text = format_details(_make(data, seed=2, auto_backstory=False))
@@ -165,8 +238,17 @@ class TestSections:
             "Personal details",
         ]
 
-    def test_a_bond_reads_relationship_name_and_score(self):
-        assert BondDetail(1, "mentor", "ROE, Sam", 9).describe() == "mentor: ROE, Sam (9)"
+    def test_a_bond_reads_relationship_person_in_reading_order_and_score(self):
+        assert describe_bond(BondDetail(1, "mentor", "ROE, Sam", 9)) == "mentor: Sam ROE (9)"
+
+    def test_a_bond_with_a_single_word_name_still_reads(self):
+        assert describe_bond(BondDetail(0, "friend", "CHER", 7)) == "friend: CHER (7)"
+
+    def test_is_empty_is_true_only_when_nothing_is_there(self):
+        assert Backstory().is_empty()
+        assert not Backstory(motivations=("a",)).is_empty()
+        assert not Backstory(bonds=(BondDetail(0, "x", "A, B", 1),)).is_empty()
+        assert not Backstory(personal_details=("a",)).is_empty()
 
 
 class TestCli:
@@ -208,7 +290,10 @@ class TestPdf:
         assert not any(page.extract_text().startswith("BACKSTORY") for page in reader.pages)
 
     def test_a_sink_without_equipment_ignores_the_backstory_option(self, tmp_path):
-        sink = PdfSink(tmp_path / "x.pdf", title=None, oconus=False, equip=False, count=None)
+        sink = PdfSink(
+            tmp_path / "x.pdf", title=None, oconus=False, equip=False, count=None, backstory=True
+        )
+        assert sink.backstory is False
         assert sink.pages_per_sheet == 1
 
     def test_a_page_that_overflows_warns_and_stops(self, tmp_path, caplog):
@@ -217,6 +302,64 @@ class TestPdf:
         with caplog.at_level(logging.WARNING, logger="dggen"):
             writer.add_backstory_page("ROE, Sam", sections)
         assert "does not fit" in caplog.text
+        assert "Bonds: xxxx" in caplog.text  # says where it stopped
+        assert "'ROE, Sam'" in caplog.text  # the name is quoted, so it cannot forge a log line
+
+    def test_a_heading_is_never_left_alone_at_the_bottom(self, tmp_path, caplog, monkeypatch):
+        """With room for the heading but not for a line under it, the heading is dropped too."""
+        writer = SheetWriter(tmp_path / "orphan.pdf")
+        recorder = _Recorder(writer.c)
+        monkeypatch.setattr(writer, "c", recorder)
+        sections = [
+            BackstorySection("Bonds", tuple(f"line {i}" for i in range(37))),
+            BackstorySection("Motivations", ("one",)),
+        ]
+        with caplog.at_level(logging.WARNING, logger="dggen"):
+            writer.add_backstory_page("ROE, Sam", sections)
+        texts = [text for _x, _y, text, _size in recorder.drawn]
+        assert "BONDS" in texts
+        assert "MOTIVATIONS" not in texts
+        assert "Motivations" in caplog.text
+
+    def test_a_word_too_wide_for_the_page_is_shrunk_not_run_off_the_edge(
+        self, tmp_path, monkeypatch
+    ):
+        writer = SheetWriter(tmp_path / "wide.pdf")
+        recorder = _Recorder(writer.c)
+        monkeypatch.setattr(writer, "c", recorder)
+        wide = "W" * 120
+        sections = [BackstorySection("Personal details", (wide, f"short then {wide}"))]
+        writer.add_backstory_page("N" * 90, sections)
+        right_edge = appearance.PAGE_WIDTH - appearance.BACKSTORY_MARGIN
+        checked = 0
+        for x, _y, text, size in recorder.drawn:
+            if text in ("BACKSTORY", "PERSONAL DETAILS"):
+                continue  # the fixed headings are in another font and always short
+            width = pdfmetrics.stringWidth(text, appearance.DEFAULT_FONT, size)
+            assert x + width <= right_edge + 0.5
+            checked += 1
+        assert checked >= 3  # the name and both long lines were really drawn and measured
+        assert any(size < appearance.BACKSTORY_BODY_SIZE for *_rest, size in recorder.drawn)
+
+
+class _Recorder:
+    """A canvas that remembers each string it was asked to draw, with its position and size."""
+
+    def __init__(self, canvas):
+        self._canvas = canvas
+        self._size = 0
+        self.drawn = []
+
+    def setFont(self, name, size, *args):  # noqa: N802 - reportlab's name
+        self._size = size
+        return self._canvas.setFont(name, size, *args)
+
+    def drawString(self, x, y, text, *args):  # noqa: N802 - reportlab's name
+        self.drawn.append((x, y, text, self._size))
+        return self._canvas.drawString(x, y, text, *args)
+
+    def __getattr__(self, name):
+        return getattr(self._canvas, name)
 
 
 def test_options_default_to_a_backstory():

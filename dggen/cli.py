@@ -118,8 +118,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-backstory",
         action="store_false",
         dest="auto_backstory",
-        help="Don't generate a backstory (named bonds, motivations, personal details); the PDF "
-        "then has no backstory page.",
+        help="Don't generate a backstory (named bonds, motivations, personal details). A PDF then "
+        "has no backstory page; with -u it has none either way.",
     )
     gen.add_argument(
         "--name",
@@ -173,7 +173,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--unequipped",
         action="store_false",
         dest="equip",
-        help="Don't generate equipment.",
+        help="Don't generate equipment. A PDF then has one page per character, with no equipment "
+        "page and no backstory page.",
     )
 
     data.add_argument(

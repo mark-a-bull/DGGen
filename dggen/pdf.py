@@ -26,10 +26,10 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from pathlib import Path
 
-    from dggen.backstory import BackstorySection
     from dggen.layout import SheetLayout
     from dggen.models import Profession
     from dggen.serialize import FieldValue
+    from dggen.summary import BackstorySection
 
 logger = logging.getLogger("dggen")
 
@@ -154,35 +154,52 @@ class SheetWriter:
         """A plain page after the sheet: who the bonds are with, motivations, personal details.
 
         The official sheet has no room for these, so they get their own page in the sheet's
-        typewriter font rather than being squeezed onto the art.
+        typewriter font rather than being squeezed onto the art. Anything that cannot fit is
+        dropped with a warning naming where it stopped; a heading is never left alone at the
+        bottom, and a line with a word too wide for the page is shrunk like any sheet field.
         """
         left = appearance.BACKSTORY_MARGIN
         width = appearance.PAGE_WIDTH - 2 * left
+        indent = appearance.BACKSTORY_HANGING_INDENT
+        body = appearance.BACKSTORY_BODY_SIZE
+        line_height = appearance.BACKSTORY_LINE_HEIGHT
         self.c.setFillColorRGB(*appearance.TEXT_COLOR)
-        self.c.setFont(appearance.OCR_FONT, 16)
-        y = appearance.PAGE_HEIGHT - 72
+        self.c.setFont(appearance.OCR_FONT, appearance.BACKSTORY_HEADING_SIZE)
+        y = appearance.PAGE_HEIGHT - appearance.BACKSTORY_TOP
         self.c.drawString(left, y, "BACKSTORY")
         y -= 22
-        self.c.setFont(appearance.DEFAULT_FONT, 12)
-        self.c.drawString(left, y, shrink_to_fit(name, 12, width, self._measure)[0])
+        shown, size = shrink_to_fit(name, appearance.BACKSTORY_NAME_SIZE, width, self._measure)
+        self.c.setFont(appearance.DEFAULT_FONT, size)
+        self.c.drawString(left, y, shown)
         y -= 10
         self.c.line(left, y, left + width, y)
         y -= 30
         for section in sections:
-            self.c.setFont(appearance.OCR_FONT, 12)
+            heading_drop = 20
+            if y - heading_drop - line_height < appearance.BACKSTORY_MARGIN:
+                self._backstory_overflow(name, section.title)
+                return
+            self.c.setFont(appearance.OCR_FONT, appearance.BACKSTORY_SECTION_SIZE)
             self.c.drawString(left, y, section.title.upper())
-            y -= 20
-            self.c.setFont(appearance.DEFAULT_FONT, 11)
+            y -= heading_drop
             for line in section.lines:
-                wrapped = simpleSplit(line, appearance.DEFAULT_FONT, 11, width - 12)
-                for i, piece in enumerate(wrapped):
+                for i, piece in enumerate(
+                    simpleSplit(line, appearance.DEFAULT_FONT, body, width - indent)
+                ):
                     if y < appearance.BACKSTORY_MARGIN:
-                        logger.warning("Backstory for %s does not fit on its page", name)
-                        self.c.showPage()
+                        self._backstory_overflow(name, f"{section.title}: {line}")
                         return
-                    self.c.drawString(left + (12 if i else 0), y, piece)
-                    y -= 15
-            y -= 14
+                    x = left + (indent if i else 0)
+                    # A single word wider than the line cannot be wrapped: shrink it to fit.
+                    piece, size = shrink_to_fit(piece, body, left + width - x, self._measure)
+                    self.c.setFont(appearance.DEFAULT_FONT, size)
+                    self.c.drawString(x, y, piece)
+                    y -= line_height
+            y -= appearance.BACKSTORY_SECTION_GAP
+        self.c.showPage()
+
+    def _backstory_overflow(self, name: str, stopped_at: str) -> None:
+        logger.warning("Backstory for %r does not fit on its page; stopped at %r", name, stopped_at)
         self.c.showPage()
 
     def save_pdf(self) -> None:

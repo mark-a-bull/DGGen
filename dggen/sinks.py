@@ -10,10 +10,9 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Protocol
 
-from dggen.backstory import backstory_sections
 from dggen.pdf import SheetWriter
 from dggen.serialize import to_back_fields, to_front_fields
-from dggen.summary import format_details
+from dggen.summary import backstory_sections, format_details
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -92,7 +91,7 @@ class PdfSink:
         self.writer.add_page(to_front_fields(character))
         if self.pages_per_sheet >= 2:
             self.writer.add_page_2(to_back_fields(character))
-        if self.backstory and character.backstory:
+        if self.backstory and character.backstory is not None:
             self.writer.add_backstory_page(character.name, backstory_sections(character.backstory))
 
     def finish(self) -> None:

@@ -17,6 +17,7 @@ from dggen.backstory import Backstory, BondDetail
 
 if TYPE_CHECKING:
     from dggen.character import Character
+    from dggen.rng import Rng
 
 FAMILY_POOL = "backstory/bond-family"
 OTHER_POOL = "backstory/bond-other"
@@ -29,17 +30,31 @@ DETAIL_COUNT = 2
 POOL_IDS = (FAMILY_POOL, OTHER_POOL, MOTIVATIONS_POOL, DETAILS_POOL)
 
 
-def _surname(char: Character) -> str:
-    """The character's own family name, as the sheet writes it ("DIGBY" of "DIGBY, Kim")."""
-    return char.name.split(",")[0].strip()
+def _surname(char: Character) -> str | None:
+    """The character's own family name, as the sheet writes it ("DIGBY" of "DIGBY, Kim").
+
+    A name with no comma (`--name "Smith Jr."` gives "SMITH Jr.") has only a surname and maybe a
+    suffix, so take its first word. None when there is nothing to take (`--name ", Kim"`).
+    """
+    head, comma, _ = char.name.partition(",")
+    words = head.split()
+    if not words:
+        return None
+    return head.strip() if comma else words[0]
+
+
+def _coin(rng: Rng) -> bool:
+    return rng.roll(0, 1) == 1
 
 
 def _bond_detail(char: Character, slot: int, score: int) -> BondDetail:
     rng = char.rng
-    family = rng.roll(0, 1) == 1
+    family = _coin(rng)
     relationship = char.data.pools.choice(FAMILY_POOL if family else OTHER_POOL, rng)
-    given_names = char.data.male_given_names if rng.roll(0, 1) else char.data.female_given_names
-    surname = _surname(char) if family else char.data.family_names(rng).upper()
+    given_names = char.data.male_given_names if _coin(rng) else char.data.female_given_names
+    # Family shares the character's surname; anyone else, or a family bond when the character
+    # has no usable surname, gets one of their own.
+    surname = (_surname(char) if family else None) or char.data.family_names(rng).upper()
     return BondDetail(slot, relationship, f"{surname}, {given_names(rng)}", score)
 
 
