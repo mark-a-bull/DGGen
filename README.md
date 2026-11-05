@@ -217,8 +217,11 @@ Install dependencies. DGGen is a package (`dggen`); installing it in editable mo
 console command. Add the `[dev]` extra if you want to run the tests.
 
 ```sh
-pip install -e ".[dev]"
+python -m pip install -e ".[dev]"
 ```
+
+DGGen needs Python 3.11 or newer. (Use `python -m pip`, not a bare `pip`: the `[dev]` extra keeps `pip` itself
+current, and on Windows `pip.exe` cannot upgrade itself.)
 
 (`pip install -U -r requirements.txt` still installs just the runtime dependencies if you prefer to run via
 `python generator.py`.)

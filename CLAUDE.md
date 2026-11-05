@@ -24,7 +24,7 @@ runtime file under `dggen/data/`, that test is what tells you whether it ships. 
 ```sh
 python -m venv .venv
 source .venv/Scripts/activate   # git-bash/WSL on Windows; .venv\Scripts\Activate.ps1 in PowerShell; .venv/bin/activate on Linux/Mac
-pip install -e ".[dev]"          # editable install + dev deps (pytest, pypdf)
+python -m pip install -e ".[dev]" # editable install + dev deps (pytest, pypdf, ruff, mypy, pip)
 dggen -h                         # console entry point; or `python -m dggen -h`, or `python generator.py -h`
 ```
 
@@ -113,8 +113,11 @@ education year consistent with age) rather than by eye.
   `TemplateError` instead of failing mid-roster. If you add a placeholder, add it to `EDUCATION_TEMPLATE_FIELDS` /
   `EMPLOYER_TEMPLATE_FIELDS` in `models.py` and pass it from the rule module.
 - **Dependency floors** matter because reportlab only asks for `pillow>=9`: `pyproject.toml` floors Pillow at 13.0.0
-  (it needs Python 3.11+, hence the `python_version` marker; 3.10 gets the newest Pillow it can install) and the dev
-  extra floors `pypdf`. Check with `pip-audit` (install it somewhere throwaway; it isn't a project dependency):
+  (which needs Python 3.11+, so `requires-python` is `>=3.11` and Python 3.10 is not supported; a test keeps that, mypy's
+  target and ruff's target in step) and the dev extra floors `pypdf` and `pip` itself (26.2.0 fixed its advisories). `pip`
+  is deliberately in the dev extra, not the runtime dependencies: pip cannot upgrade itself through `pip.exe` on Windows
+  ("To modify pip, please run `python -m pip install …`"), so a runtime requirement would make `pip install dggen` fail
+  for anyone there with an older pip, and the install command is `python -m pip install -e ".[dev]"`. Check with `pip-audit` (install it somewhere throwaway; it isn't a project dependency):
   `pip-audit -r requirements.txt`. `tests/test_packaging.py` fails if the Pillow floor is dropped from either
   `pyproject.toml` or `requirements.txt`.
 
