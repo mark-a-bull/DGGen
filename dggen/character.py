@@ -27,6 +27,7 @@ from dggen.text import age_on, format_name
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from dggen.backstory import Backstory
     from dggen.equipped import EquippedWeapon
     from dggen.models import Data, Profession
     from dggen.rng import Rng
@@ -80,6 +81,7 @@ class Character:
         self.bonds: dict[int, int] = {}
         self.picked_skills: list[str] = []  # the profession's `possible` skills actually chosen
         self.bonus_skills: list[str] = []
+        self.backstory: Backstory | None = None  # who the bonds are with, motivations, details
 
         # Psychological / veterancy
         self.san_lost = 0

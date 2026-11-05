@@ -1,0 +1,26 @@
+# Non-family bonds. One relationship per line.
+partner
+engaged partner
+former partner
+best friend
+childhood friend
+college roommate
+mentor
+junior colleague they trained
+former supervisor
+former teammate
+classmate from training
+old training partner
+friend from down the street
+landlord
+family doctor
+therapist
+confessor
+church friend
+bandmate
+poker night regular
+gym partner
+informant
+protected witness
+colleague at the old job
+rival turned friend

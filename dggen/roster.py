@@ -11,6 +11,7 @@ from itertools import cycle, islice
 from typing import TYPE_CHECKING
 
 from dggen.character import Character
+from dggen.rules.backstory import generate_backstory
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
@@ -29,16 +30,20 @@ def generate_character(
     *,
     equip: bool = True,
 ) -> Character:
-    """One finished character: generated, equipped from the profession's kit, footnotes flushed.
+    """One finished character: generated, equipped, given a backstory, footnotes flushed.
 
-    The order matters (footnote markers are assigned while equipping, and the note lines can only
-    be flushed after that), which is why callers should use this rather than repeating the steps.
+    The order matters: footnote markers are assigned while equipping, and the note lines can only
+    be flushed after that. The backstory draws from a fork of `rng` (see `rules/backstory.py`), so
+    `rng` ends up exactly where it would have without one and the next character of a roster is
+    unaffected. Callers should use this rather than repeating the steps.
     """
     character = Character.generate(
         data=data, rng=rng, sex=sex, profession=profession, options=options
     )
     if equip:
         character.equip(profession.equipment_kit)
+    if options.auto_backstory:
+        generate_backstory(character)
     character.print_footnotes()
     return character
 

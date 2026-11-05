@@ -7,13 +7,48 @@ strings), not for reading as text.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from dggen.constants import STATS
 
 if TYPE_CHECKING:
+    from dggen.backstory import Backstory, BondDetail
     from dggen.character import Character
     from dggen.equipped import EquippedWeapon
+
+
+@dataclass(frozen=True)
+class BackstorySection:
+    """A heading and its lines, as the text summary and the PDF's backstory page both show them."""
+
+    title: str
+    lines: tuple[str, ...] = ()
+
+
+def describe_bond(bond: BondDetail) -> str:
+    """ "mentor: Sam ROE (bond 9)": the relationship, the person in reading order, the score.
+
+    The sheet writes names "SURNAME, Given"; that order reads badly inside a sentence-like line.
+    The score is labelled so it cannot be mistaken for an age.
+    """
+    surname, _, given = bond.name.partition(", ")
+    person = f"{given} {surname}" if given else surname
+    return f"{bond.relationship}: {person} (bond {bond.score})"
+
+
+def backstory_sections(backstory: Backstory) -> list[BackstorySection]:
+    """The non-empty sections of a backstory, in reading order."""
+    sections = []
+    if backstory.bonds:
+        sections.append(
+            BackstorySection("Bonds", tuple(describe_bond(bond) for bond in backstory.bonds))
+        )
+    if backstory.motivations:
+        sections.append(BackstorySection("Motivations", backstory.motivations))
+    if backstory.personal_details:
+        sections.append(BackstorySection("Personal details", backstory.personal_details))
+    return sections
 
 
 def _skill_rows(skills: dict[str, int], labels: dict[str, str]) -> list[tuple[str, int]]:
@@ -123,7 +158,13 @@ def format_details(char: Character) -> str:
             ),
         ],
     ]
-    if char.bonds:
+    if char.backstory and not char.backstory.is_empty():
+        # Named bonds replace the bare scores; motivations and details follow.
+        sections.extend(
+            [f"{section.title}:", *(f"  {line}" for line in section.lines)]
+            for section in backstory_sections(char.backstory)
+        )
+    elif char.bonds:
         sections.append(
             ["Bonds:", *(f"  Bond {i + 1}: {score}" for i, score in char.bonds.items())]
         )

@@ -19,12 +19,15 @@ every seeded character (and the golden snapshot), so callers must say which one 
 - `sample(seq, k)`         k distinct elements        (`random.sample`)
 - `shuffle(items)`         in place                   (`random.shuffle`)
 - `bits(k)`                k random bits, e.g. to seed a derived generator (`random.getrandbits`)
+- `fork()`                 a new `Rng` derived from this one's current state, *without* drawing from
+                          it (so adding a consumer of the fork never moves anyone else's draws)
 
 `tests/test_rng.py` pins each of these to the stdlib call it wraps.
 """
 
 from __future__ import annotations
 
+import hashlib
 import random
 from typing import TYPE_CHECKING, TypeVar
 
@@ -65,3 +68,13 @@ class Rng:
 
     def bits(self, k: int) -> int:
         return self._random.getrandbits(k)
+
+    def fork(self) -> Rng:
+        """A new generator seeded from a hash of this one's current state; this one is not advanced.
+
+        Use it for an optional extra that should not disturb the main stream: whether it runs or
+        not, every later draw from `self` is the same. The fork is a pure function of the state, so
+        the same seed still reproduces it (in any process), and forks taken at different points
+        differ."""
+        digest = hashlib.sha256(repr(self._random.getstate()).encode()).digest()
+        return Rng(int.from_bytes(digest[:8], "big"))

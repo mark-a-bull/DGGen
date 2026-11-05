@@ -11,6 +11,10 @@ Open the relevant file and add a line. That's it.
   characters might work for.
 - `dggen/data/pools/institutions/university.txt` — add a college.
 - `dggen/data/pools/names/male-given.txt` — add a first name.
+- `dggen/data/pools/backstory/motivations.txt` — add a motivation; `quirks.txt` adds a personal detail, and
+  `bond-family.txt` / `bond-other.txt` add a kind of bond (family ones share the character's surname). End a
+  relationship with `|male` or `|female` (`uncle|male`) if the person must be a man or a woman; without a tag
+  it can be either. The backstory pools are plain lists, so a `.csv` weight column would be ignored.
 
 Blank lines and lines starting with `#` are ignored, so a file can carry a one-line comment at
 the top explaining what it's for.

@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 from dggen.errors import DataError
 from dggen.layout import load_layout
 from dggen.pools import PoolError
+from dggen.rules import backstory
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -39,6 +40,47 @@ def validate_data(data: Data, layout: SheetLayout | None = None) -> None:
     _equipment(data, problems)
     _skills(data, problems, layout or load_layout())
 
+    _raise_if_any(problems)
+
+
+def validate_backstory(data: Data) -> None:
+    """Raise `DataError` if the backstory pools are missing or too short to draw from.
+
+    Separate from `validate_data` because the backstory is optional (`--no-backstory`): data
+    without these pools is still valid for a run that does not ask for one. The CLI calls this
+    when it does, so a bad pool exits 2 at startup instead of failing partway through a roster.
+    """
+    problems: list[str] = []
+    needed = {
+        backstory.FAMILY_POOL: 1,
+        backstory.OTHER_POOL: 1,
+        backstory.MOTIVATIONS_POOL: backstory.MOTIVATION_COUNT,
+        backstory.DETAILS_POOL: backstory.DETAIL_COUNT,
+    }
+    for ref, minimum in needed.items():
+        try:
+            values = data.pools.values(ref)
+        except PoolError as exc:
+            problems.append(f"backstory pool {ref!r}: {exc}")
+            continue
+        if len(backstory.distinct(values)) < minimum:
+            problems.append(f"backstory pool {ref!r}: needs at least {minimum} different values")
+    for ref in (backstory.FAMILY_POOL, backstory.OTHER_POOL):
+        try:
+            values = data.pools.values(ref)
+        except PoolError:
+            continue  # reported above
+        for value in values:
+            text, tag = backstory.split_tag(value)
+            if not text or (tag is None and "|" in value):
+                problems.append(
+                    f"backstory pool {ref!r}: {value!r} should be 'relationship' or "
+                    "'relationship|male' or 'relationship|female'"
+                )
+    _raise_if_any(problems)
+
+
+def _raise_if_any(problems: list[str]) -> None:
     if problems:
         count = len(problems)
         plural = "problem" if count == 1 else "problems"

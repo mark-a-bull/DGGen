@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Protocol
 
 from dggen.pdf import SheetWriter
 from dggen.serialize import to_back_fields, to_front_fields
-from dggen.summary import format_details
+from dggen.summary import backstory_sections, format_details
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -66,11 +66,17 @@ class PdfSink:
         oconus: bool,
         equip: bool,
         count: int | None,
+        backstory: bool = True,
     ) -> None:
         self.output = output
         self.title = title
         self.oconus = oconus
+        # Front, then back (equipment), then backstory. Without equipment the sheet is one page and
+        # the blank back page is added at the end, so a backstory page only goes with a full sheet.
+        self.equip = equip
+        self.backstory = backstory and equip
         self.pages_per_sheet = 2 if equip else 1
+        self.pages_per_sheet += 1 if self.backstory else 0
         self.count = count  # the -c override, so the table of contents can number pages
         self.writer = SheetWriter(output, pages_per_sheet=self.pages_per_sheet)
 
@@ -84,8 +90,17 @@ class PdfSink:
 
     def add(self, character: Character) -> None:
         self.writer.add_page(to_front_fields(character))
-        if self.pages_per_sheet >= 2:
+        if self.equip:
             self.writer.add_page_2(to_back_fields(character))
+        if self.backstory:
+            if character.backstory is None:
+                # The table of contents was numbered for a backstory page after every sheet; a
+                # character without one would silently throw every later page number off.
+                raise ValueError(
+                    "this PdfSink expects each character to have a backstory (it numbers pages "
+                    "for one): generate with auto_backstory=True or pass backstory=False"
+                )
+            self.writer.add_backstory_page(character.name, backstory_sections(character.backstory))
 
     def finish(self) -> None:
         self.writer.save_pdf()

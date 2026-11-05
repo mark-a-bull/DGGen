@@ -54,4 +54,7 @@ class GenerationOptions:
     damaged: bool = True
     auto_education: bool = True
     auto_employer: bool = True
+    # Honoured by `roster.generate_character`, which draws the backstory from a fork of the Rng;
+    # `Character.generate` alone never makes one (it is not a `PIPELINE` step).
+    auto_backstory: bool = True
     today: date | None = None  # the date ages are measured against (default: the real today)

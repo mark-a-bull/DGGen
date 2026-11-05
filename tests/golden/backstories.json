@@ -1,0 +1,325 @@
+{
+ "agent-1-male": {
+  "bonds": [
+   [
+    0,
+    "grandparent",
+    "CALDERON, Earl",
+    11
+   ],
+   [
+    1,
+    "older brother",
+    "CALDERON, Jerel",
+    11
+   ],
+   [
+    2,
+    "mother",
+    "CALDERON, Megan",
+    11
+   ]
+  ],
+  "motivations": [
+   "Keep a steady income for the people who depend on it",
+   "Shield a younger colleague from the worst of it"
+  ],
+  "name": "CALDERON, Ruben",
+  "personal_details": [
+   "Doesn't drink, and says so early",
+   "Volunteers at a local shelter on weekends"
+  ]
+ },
+ "agent-2-female": {
+  "bonds": [
+   [
+    0,
+    "ex-spouse",
+    "WEBRE, Dorothy",
+    16
+   ],
+   [
+    1,
+    "junior colleague they trained",
+    "MASTEN, Antionette",
+    16
+   ],
+   [
+    2,
+    "mentor",
+    "HYDE, Darrin",
+    16
+   ]
+  ],
+  "motivations": [
+   "Keep a steady income for the people who depend on it",
+   "Do the job right, whatever the job turns out to be"
+  ],
+  "name": "WEBRE, Terra",
+  "personal_details": [
+   "Has a framed commendation they never mention",
+   "Cannot sleep through a thunderstorm"
+  ]
+ },
+ "named-with-a-suffix": {
+  "bonds": [
+   [
+    0,
+    "twin",
+    "SMITH, Charles",
+    11
+   ],
+   [
+    1,
+    "bandmate",
+    "MAYHUGH, Jeffrey",
+    11
+   ],
+   [
+    2,
+    "mother",
+    "SMITH, Selina",
+    11
+   ]
+  ],
+  "motivations": [
+   "Make sure someone is looking when nobody else is",
+   "Find out what really happened"
+  ],
+  "name": "SMITH, Kim Jr.",
+  "personal_details": [
+   "Sends postcards to people who do not write back",
+   "Reads detective novels and picks apart the plots"
+  ]
+ },
+ "nurse-3-female": {
+  "bonds": [
+   [
+    0,
+    "older sister",
+    "DIGBY, Paige",
+    12
+   ],
+   [
+    1,
+    "partner",
+    "DOANE, Darwin",
+    12
+   ]
+  ],
+  "motivations": [
+   "Do the job right, whatever the job turns out to be",
+   "Find out what really happened"
+  ],
+  "name": "DIGBY, Kim",
+  "personal_details": [
+   "Reads detective novels and picks apart the plots",
+   "Keeps a tidy desk and a messy car"
+  ]
+ },
+ "pilot-7-male": {
+  "bonds": [
+   [
+    0,
+    "stepmother",
+    "GAFFORD, Gabrielle",
+    11
+   ]
+  ],
+  "motivations": [
+   "Keep the people closest to them out of it",
+   "Do the job right, whatever the job turns out to be"
+  ],
+  "name": "GAFFORD, Casey",
+  "personal_details": [
+   "Sleeps badly and keeps a pot of coffee going all night",
+   "Prays quietly before anything risky"
+  ]
+ },
+ "police-5-male": {
+  "bonds": [
+   [
+    0,
+    "teenage child",
+    "MILLINER, Martina",
+    9
+   ],
+   [
+    1,
+    "mother",
+    "MILLINER, Kandace",
+    9
+   ],
+   [
+    2,
+    "landlord",
+    "QUIROS, Durell",
+    9
+   ]
+  ],
+  "motivations": [
+   "Do the job right, whatever the job turns out to be",
+   "Protect the people at home from what they never see"
+  ],
+  "name": "MILLINER, Nicholaus",
+  "personal_details": [
+   "Writes everything down in a small notebook",
+   "Drives the same battered car for fifteen years"
+  ]
+ },
+ "scientist-6-female": {
+  "bonds": [
+   [
+    0,
+    "former teammate",
+    "LEEDY, Ricky",
+    17
+   ],
+   [
+    1,
+    "childhood friend",
+    "MCKISSACK, Priscilla",
+    17
+   ],
+   [
+    2,
+    "college roommate",
+    "NOWACKI, Melody",
+    17
+   ]
+  ],
+  "motivations": [
+   "Make amends for a mistake nobody else knows about",
+   "Finish the work that ended a career"
+  ],
+  "name": "SANFILIPPO, Rosanna",
+  "personal_details": [
+   "Prays quietly before anything risky",
+   "Runs five miles every morning, whatever the weather"
+  ]
+ },
+ "soldier-4-male": {
+  "bonds": [
+   [
+    0,
+    "teenage child",
+    "DIBENEDETTO, Terence",
+    8
+   ],
+   [
+    1,
+    "therapist",
+    "LITWIN, Ignacio",
+    8
+   ],
+   [
+    2,
+    "protected witness",
+    "CHRISTIANSON, Donovan",
+    8
+   ],
+   [
+    3,
+    "classmate from training",
+    "MATTA, Andreas",
+    8
+   ]
+  ],
+  "motivations": [
+   "Do the job right, whatever the job turns out to be",
+   "Restore a name that was ruined"
+  ],
+  "name": "DIBENEDETTO, Brady",
+  "personal_details": [
+   "Prays quietly before anything risky",
+   "Volunteers at a local shelter on weekends"
+  ]
+ },
+ "veteran-nurse-9": {
+  "bonds": [
+   [
+    0,
+    "adult child",
+    "JUNE, Loren",
+    16
+   ],
+   [
+    1,
+    "mentor",
+    "COURSEY, Candi",
+    16
+   ]
+  ],
+  "motivations": [
+   "Prove the official story wrong",
+   "Shield a younger colleague from the worst of it"
+  ],
+  "name": "JUNE, Helen",
+  "personal_details": [
+   "Volunteers at a local shelter on weekends",
+   "Sleeps badly and keeps a pot of coffee going all night"
+  ]
+ },
+ "veteran-soldier-8": {
+  "bonds": [
+   [
+    0,
+    "junior colleague they trained",
+    "MCANALLY, Emilio",
+    11
+   ],
+   [
+    1,
+    "spouse",
+    "DELONEY, Johnathan",
+    11
+   ],
+   [
+    2,
+    "informant",
+    "FISCHER, Jane",
+    11
+   ],
+   [
+    3,
+    "mother",
+    "DELONEY, Shanell",
+    11
+   ]
+  ],
+  "motivations": [
+   "Earn a quiet retirement",
+   "Make amends for a mistake nobody else knows about"
+  ],
+  "name": "DELONEY, Vaughn",
+  "personal_details": [
+   "Collects old road maps and cannot throw any away",
+   "Still wears a watch that stopped years ago"
+  ]
+ },
+ "veteran-that-lost-a-bond": {
+  "bonds": [
+   [
+    0,
+    "colleague at the old job",
+    "WEITZMAN, Clyde",
+    5
+   ],
+   [
+    1,
+    "uncle",
+    "DIBENEDETTO, Lorenzo",
+    5
+   ]
+  ],
+  "motivations": [
+   "Keep a steady income for the people who depend on it",
+   "Shield a younger colleague from the worst of it"
+  ],
+  "name": "DIBENEDETTO, Brady",
+  "personal_details": [
+   "Cooks elaborate meals for people who never come",
+   "Collects old road maps and cannot throw any away"
+  ]
+ }
+}

@@ -15,6 +15,17 @@ PAGE_HEIGHT = 792
 PAGE_SIZE = (PAGE_WIDTH, PAGE_HEIGHT)
 
 TEXT_COLOR = (0, 0.1, 0.5)
+# The plain backstory page that follows each character's sheet: margins and type, in points.
+BACKSTORY_MARGIN = 56  # left, right and bottom
+BACKSTORY_TOP = 72  # from the top edge to the "BACKSTORY" heading
+BACKSTORY_HEADING_SIZE = 16
+BACKSTORY_NAME_SIZE = 12
+BACKSTORY_SECTION_SIZE = 12
+BACKSTORY_BODY_SIZE = 11
+BACKSTORY_LINE_HEIGHT = 15
+BACKSTORY_SECTION_GAP = 14  # blank space after each section
+BACKSTORY_HANGING_INDENT = 12  # wrapped lines are indented by this much
+
 DEFAULT_FONT = "Special Elite"
 OCR_FONT = "OCRA"
 

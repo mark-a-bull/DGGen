@@ -26,6 +26,7 @@ from dggen.rng import Rng
 from dggen.roster import generate_roster
 from dggen.sinks import PdfSink, Sink, TextSink
 from dggen.text import TemplateError, parse_date
+from dggen.validate import validate_backstory
 
 logger = logging.getLogger("dggen")
 
@@ -115,6 +116,13 @@ def build_parser() -> argparse.ArgumentParser:
         "leave the field blank unless --employer is also given.",
     )
     gen.add_argument(
+        "--no-backstory",
+        action="store_false",
+        dest="auto_backstory",
+        help="Don't generate a backstory (named bonds, motivations, personal details). A PDF then "
+        "has no backstory page; with -u it has none either way.",
+    )
+    gen.add_argument(
         "--name",
         action="store",
         help="Override generated name. Accepts either the sheet's 'SURNAME, Given' order "
@@ -166,7 +174,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--unequipped",
         action="store_false",
         dest="equip",
-        help="Don't generate equipment.",
+        help="Don't generate equipment. A PDF then has one page per character, with no equipment "
+        "page and no backstory page.",
     )
 
     data.add_argument(
@@ -348,6 +357,7 @@ def generation_from(options: argparse.Namespace) -> GenerationOptions:
         damaged=options.damaged,
         auto_education=options.auto_education,
         auto_employer=options.auto_employer,
+        auto_backstory=options.auto_backstory,
     )
 
 
@@ -365,6 +375,8 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         data = load_data(sources_from(options))
+        if options.auto_backstory:
+            validate_backstory(data)
         professions = (
             [find_profession(data.professions, options.type)]
             if options.type
@@ -400,6 +412,7 @@ def main(argv: list[str] | None = None) -> int:
                 oconus=options.oconus,
                 equip=options.equip,
                 count=options.count,
+                backstory=options.auto_backstory,
             )
         )
     for sink in sinks:

@@ -13,6 +13,7 @@ from datetime import datetime
 from textwrap import shorten
 from typing import TYPE_CHECKING, Any
 
+from reportlab.lib.utils import simpleSplit
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
@@ -28,6 +29,7 @@ if TYPE_CHECKING:
     from dggen.layout import SheetLayout
     from dggen.models import Profession
     from dggen.serialize import FieldValue
+    from dggen.summary import BackstorySection
 
 logger = logging.getLogger("dggen")
 
@@ -147,6 +149,58 @@ class SheetWriter:
 
     def add_page_2(self, e: dict[str, FieldValue]) -> None:
         self._add_sheet_page(appearance.SHEET_BACK_IMAGE, e)
+
+    def add_backstory_page(self, name: str, sections: Iterable[BackstorySection]) -> None:
+        """A plain page after the sheet: who the bonds are with, motivations, personal details.
+
+        The official sheet has no room for these, so they get their own page in the sheet's
+        typewriter font rather than being squeezed onto the art. Anything that cannot fit is
+        dropped with a warning naming where it stopped; a heading is never left alone at the
+        bottom, and a line with a word too wide for the page is shrunk like any sheet field.
+        """
+        left = appearance.BACKSTORY_MARGIN
+        width = appearance.PAGE_WIDTH - 2 * left
+        indent = appearance.BACKSTORY_HANGING_INDENT
+        body = appearance.BACKSTORY_BODY_SIZE
+        line_height = appearance.BACKSTORY_LINE_HEIGHT
+        self.c.setFillColorRGB(*appearance.TEXT_COLOR)
+        self.c.setFont(appearance.OCR_FONT, appearance.BACKSTORY_HEADING_SIZE)
+        y = appearance.PAGE_HEIGHT - appearance.BACKSTORY_TOP
+        self.c.drawString(left, y, "BACKSTORY")
+        y -= 22
+        shown, size = shrink_to_fit(name, appearance.BACKSTORY_NAME_SIZE, width, self._measure)
+        self.c.setFont(appearance.DEFAULT_FONT, size)
+        self.c.drawString(left, y, shown)
+        y -= 10
+        self.c.line(left, y, left + width, y)
+        y -= 30
+        for section in sections:
+            heading_drop = 20
+            if y - heading_drop - line_height < appearance.BACKSTORY_MARGIN:
+                self._backstory_overflow(name, section.title)
+                return
+            self.c.setFont(appearance.OCR_FONT, appearance.BACKSTORY_SECTION_SIZE)
+            self.c.drawString(left, y, section.title.upper())
+            y -= heading_drop
+            for line in section.lines:
+                for i, piece in enumerate(
+                    simpleSplit(line, appearance.DEFAULT_FONT, body, width - indent)
+                ):
+                    if y < appearance.BACKSTORY_MARGIN:
+                        self._backstory_overflow(name, f"{section.title}: {line}")
+                        return
+                    x = left + (indent if i else 0)
+                    # A single word wider than the line cannot be wrapped: shrink it to fit.
+                    piece, size = shrink_to_fit(piece, body, left + width - x, self._measure)
+                    self.c.setFont(appearance.DEFAULT_FONT, size)
+                    self.c.drawString(x, y, piece)
+                    y -= line_height
+            y -= appearance.BACKSTORY_SECTION_GAP
+        self.c.showPage()
+
+    def _backstory_overflow(self, name: str, stopped_at: str) -> None:
+        logger.warning("Backstory for %r does not fit on its page; stopped at %r", name, stopped_at)
+        self.c.showPage()
 
     def save_pdf(self) -> None:
         if self.pages_per_sheet == 1:
