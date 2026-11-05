@@ -8,18 +8,26 @@ name = "dggen"
 dynamic = ["version"]
 description = "Generate pre-made character sheets (PDF) for the Delta Green pen-and-paper RPG."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = { file = "LICENSE.md" }
 dependencies = [
     "reportlab~=4.0",
     "faker~=40.23.0",
-    # reportlab requires Pillow but only "pillow>=9". 13.0.0 fixes the advisories open against
-    # 12.x; it needs Python 3.11+, so Python 3.10 keeps the newest Pillow it can install.
-    "pillow>=13.0.0; python_version >= '3.11'",
+    # reportlab requires Pillow but only "pillow>=9". 13.0.0 fixes the advisories open against 12.x.
+    "pillow>=13.0.0",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "pypdf>=6.21.2", "mypy>=1.10", "types-reportlab", "ruff>=0.6"]
+# pip is here, not in the runtime dependencies: 26.2.0 fixed its advisories, but pip cannot upgrade
+# itself through pip.exe on Windows, so install with `python -m pip install -e ".[dev]"`.
+dev = [
+    "pytest>=8",
+    "pypdf>=6.21.2",
+    "mypy>=1.10",
+    "types-reportlab",
+    "ruff>=0.6",
+    "pip>=26.2.0",
+]
 
 [project.scripts]
 dggen = "dggen.cli:main"
@@ -46,14 +54,14 @@ testpaths = ["tests"]
 [tool.mypy]
 # `mypy` checks the package strictly. tests/test_typing.py also checks tests/ (with the
 # untyped-def rules relaxed: fixtures and test functions are deliberately unannotated).
-python_version = "3.10"
+python_version = "3.11"
 files = ["dggen"]
 strict = true
 warn_unused_ignores = true
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.format]
 line-ending = "lf"

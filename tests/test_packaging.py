@@ -98,12 +98,10 @@ def _declared(path: str) -> list[str]:
 @pytest.mark.parametrize("path", ["pyproject.toml", "requirements.txt"])
 def test_pillow_is_floored_at_a_release_without_known_advisories(path):
     """reportlab pulls Pillow in without a useful floor, so an old, vulnerable Pillow would satisfy
-    the declared dependencies. 13.0.0 fixes the 39 advisories open against 12.x, but needs Python
-    3.11+, so the floor carries a marker rather than blocking Python 3.10 installs outright."""
+    the declared dependencies. 13.0.0 fixes the 39 advisories open against 12.x. It needs Python
+    3.11+, which is the minimum this project supports, so the floor needs no condition."""
     [requirement] = [r for r in _declared(path) if r.lower().startswith("pillow")]
-    assert re.fullmatch(
-        r"pillow>=13(\.\d+)*\s*;\s*python_version\s*>=\s*['\"]3\.11['\"]", requirement
-    )
+    assert re.fullmatch(r"pillow>=13(\.\d+)*", requirement), requirement
 
 
 def test_the_wheel_marks_the_package_as_typed(wheel_names):
@@ -128,3 +126,28 @@ def test_the_version_has_a_single_source(built_wheel):
         name = next(n for n in wheel.namelist() if n.endswith(".dist-info/METADATA"))
         metadata = wheel.read(name).decode("utf-8").replace("\r\n", "\n")
     assert f"Version: {dggen.__version__}\n" in metadata
+
+
+def _pyproject() -> str:
+    return (REPO / "pyproject.toml").read_text(encoding="utf-8")
+
+
+def test_the_python_floor_and_the_tool_targets_agree():
+    """Python 3.10 is dropped (Pillow 13, which fixes the open advisories, needs 3.11+). The minimum
+    version, mypy's target and ruff's target are written in three places; they must not drift."""
+    text = _pyproject()
+    assert re.search(r'^requires-python = ">=3\.11"$', text, re.MULTILINE)
+    assert re.search(r'^python_version = "3\.11"$', text, re.MULTILINE)  # [tool.mypy]
+    assert re.search(r'^target-version = "py311"$', text, re.MULTILINE)  # [tool.ruff]
+
+
+def test_the_dev_extra_keeps_pip_itself_current():
+    """pip has had advisories fixed in 26.2.0. It lives in the dev extra, not the runtime
+    dependencies: a runtime requirement on pip would make `pip install dggen` fail for anyone
+    on Windows with an older pip (pip cannot upgrade itself through pip.exe)."""
+    dev = re.search(r"^dev = \[(.*?)\]", _pyproject(), re.DOTALL | re.MULTILINE)
+    assert dev, "no dev extra"
+    requirements = [Requirement(r) for r in re.findall(r'"([^"]+)"', dev.group(1))]
+    [pip] = [r for r in requirements if r.name == "pip"]
+    assert any(spec.version.startswith("26") for spec in pip.specifier)
+    assert not [r for r in _declared("pyproject.toml") if r.lower().startswith("pip")]
